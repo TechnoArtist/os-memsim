@@ -4,6 +4,37 @@
 #include "mmu.h"
 #include "pagetable.h"
 
+/* Master todo list (does not auto-update)
+
+All starter todos are in the .cpp files. 
+The .h files are useful reference material. 
+
+main.cpp
+    - Prompt loop (prompting the user for input, and handling their commands; the main loop) 
+        * This will likely tie together the program
+    - createProcess() (the "create" command)
+    - allocateVariable() (the "allocate" command)
+    - setVariable() (the "set" command)
+    - freeVariable() (the "free" command)
+    - terminateProcess() (the exit command)
+
+mmu.cpp
+    - finish the print command 
+
+pagetable.cpp
+    - finish addEntry()
+    - finish getPhysicalAddress() 
+        - convert virtual addr to page_number and _offset
+        - finish the lookup
+    - finish the print command
+
+
+I'd recommend starting with the pagetable todos, as they seem least dependent on other factors. 
+I'd then recommend working on the various incomplete methods in main, adding them one by one to the prompt loop for testing. 
+Not sure exactly when the print commands should be done. Maybe before the main methods. 
+
+*/
+
 void printStartMessage(int page_size);
 void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table);
 void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table);
