@@ -33,7 +33,10 @@ I'd recommend starting with the pagetable todos, as they seem least dependent on
 I'd then recommend working on the various incomplete methods in main, adding them one by one to the prompt loop for testing. 
 Not sure exactly when the print commands should be done. Maybe before the main methods. 
 
+
 */
+
+int test;
 
 void printStartMessage(int page_size);
 void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table);
