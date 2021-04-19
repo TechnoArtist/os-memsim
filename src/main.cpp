@@ -71,14 +71,18 @@ int main(int argc, char **argv)
 	std::cout << "> ";
 	std::getline (std::cin, command);
 	while (command != "exit") {
+        page_table.addEntry(1026, 5);
+        page_table.addEntry(1024, 4);
+        page_table.addEntry(1028, 13);
+        page_table.print();
 		// Handle command
 		// TODO: implement this!
-        
+		
 		// First, split the command by spaces (todo: find c++ version of splitString() and the var (array?) to hold it)
-		// Iterate through the first section of each command (its name), if-else-if-else, else { bad command, try again }. 
+		// Iterate through the first section of each command (its name), else { bad command, try again }. 
 		// Inside a specific command, error check the input (right number of inputs? Right types? Bounded?) and convert
 		// Then use the appropriate method for the command and inform the user as needed. 
-        
+
 		// Get next command
 		std::cout << "> ";
 		std::getline (std::cin, command);
