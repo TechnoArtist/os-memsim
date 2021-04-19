@@ -56,7 +56,6 @@ void PageTable::addEntry(uint32_t pid, int page_number)
 
 int PageTable::getPhysicalAddress(uint32_t pid, uint32_t virtual_address)
 {   
-
     //using bitshifting
     uint32_t numBits = (uint32_t)log2(_page_size);//num bits for page offset
     int pageNum = (int)(virtual_address >> numBits);
@@ -75,7 +74,6 @@ int PageTable::getPhysicalAddress(uint32_t pid, uint32_t virtual_address)
 void PageTable::print()
 {
 	int i;
-
 	std::cout << " PID  | Page Number | Frame Number" << std::endl;
 	std::cout << "------+-------------+--------------" << std::endl;
 
@@ -85,7 +83,8 @@ void PageTable::print()
     it = _table.begin();
 	for (i = 0; i < keys.size(); i++)
 	{   //frame number
-		printf("%6i|%13i|%14i\n", it->first, it->second, _table.at(keys[i]));
+        it->first
+		printf("%6u|%13i|%14i\n", , _table.at(keys[i]));
         it++;
 	}
 }
