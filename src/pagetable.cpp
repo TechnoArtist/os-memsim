@@ -62,7 +62,7 @@ int PageTable::getPhysicalAddress(uint32_t pid, uint32_t virtual_address)
     int pageNum = (int)(virtual_address >> numBits);
     int offset = (int)((_page_size - 1) & virtual_address);
 	// Combination of pid and page number act as the key to look up frame number
-	std::string entry = std::to_string(pid) + "|" + std::to_string(page_number);
+	std::string entry = std::to_string(pid) + "|" + std::to_string(pageNum);
 	// If entry exists, look up frame number and convert virtual to physical address
 	int address = -1;
 	if (_table.count(entry) > 0)
@@ -81,8 +81,11 @@ void PageTable::print()
 
 	std::vector<std::string> keys = sortedKeys();
 
+    std::map<std::string,int>::iterator it;
+    it = _table.begin();
 	for (i = 0; i < keys.size(); i++)
-	{
-		printf("%s\n", keys.get(i));
+	{   //frame number
+		printf("%6i|%13i|%14i\n", it->first, it->second, _table.at(keys[i]));
+        it++;
 	}
 }

@@ -71,10 +71,11 @@ int main(int argc, char **argv)
 	std::cout << "> ";
 	std::getline (std::cin, command);
 	while (command != "exit") {
-        page_table.addEntry(1026, 5);
-        page_table.addEntry(1024, 4);
-        page_table.addEntry(1028, 13);
-        page_table.print();
+        page_table->addEntry(1026, 5);
+        page_table->addEntry(1024, 4);
+        page_table->addEntry(1025, 8);
+        page_table->addEntry(1028, 13);
+        page_table->print();
 		// Handle command
 		// TODO: implement this!
 		
