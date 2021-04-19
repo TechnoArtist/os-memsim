@@ -26,8 +26,7 @@ class PageTable {
 private:
     // The size of pages in the current simulation. 
 	int _page_size;
-    // A key:value table, where keys are pid|pagenum (strings) and values are ... (ints). 
-    // TODO: Fill in the missing words of the above comment. 
+    // A key:value table, where keys are pid|pagenum (strings) and values are frame ids (ints). 
 	std::map<std::string, int> _table;
 
 	std::vector<std::string> sortedKeys();

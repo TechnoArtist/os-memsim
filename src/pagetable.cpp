@@ -1,5 +1,7 @@
 #include "pagetable.h"
 #include <math.h>
+#include <string>
+#include <cstring>
 
 PageTable::PageTable(int page_size)
 {
@@ -79,12 +81,11 @@ void PageTable::print()
 
 	std::vector<std::string> keys = sortedKeys();
 
-    std::map<std::string,int>::iterator it;
-    it = _table.begin();
+    std::map<std::string,int>::iterator iter;
+    iter = _table.begin();
 	for (i = 0; i < keys.size(); i++)
 	{   //frame number
-        it->first
-		printf("%6u|%13i|%14i\n", , _table.at(keys[i]));
-        it++;
+		printf("%6u|%13i|%14i\n", iter->first, iter->first, iter->second);
+        iter++;
 	}
 }

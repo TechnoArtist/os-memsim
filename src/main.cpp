@@ -33,6 +33,11 @@ I'd recommend starting with the pagetable todos, as they seem least dependent on
 I'd then recommend working on the various incomplete methods in main, adding them one by one to the prompt loop for testing. 
 Not sure exactly when the print commands should be done. Maybe before the main methods, or maybe in parallel, if they have matching sections. 
 
+Next focuses: 
+	- allocateVariable() 
+	- - createProcess() (relies on allocateVariable())
+	- ? Pagetable (currently have questions on splitting the string)
+	- ? Mmu printing (see above questions)
 
 */
 
@@ -119,9 +124,17 @@ void printStartMessage(int page_size)
 void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table)
 {
 	// TODO: implement this!
+	
 	//   - create new process in the MMU
+	uint32_t pid = mmu->createProcess(); 
+	
 	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK>
+	//allocateVariable(); 
+	//allocateVariable(); 
+	//allocateVariable(); 
+	
 	//   - print pid
+	printf("%s", pid); //TODO formatting
 }
 
 void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table)
