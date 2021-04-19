@@ -73,18 +73,18 @@ int main(int argc, char **argv)
 	while (command != "exit") {
 		// Handle command
 		// TODO: implement this!
-		
+        
 		// First, split the command by spaces (todo: find c++ version of splitString() and the var (array?) to hold it)
-		// Iterate through the first section of each command (its name), else { bad command, try again }. 
+		// Iterate through the first section of each command (its name), if-else-if-else, else { bad command, try again }. 
 		// Inside a specific command, error check the input (right number of inputs? Right types? Bounded?) and convert
 		// Then use the appropriate method for the command and inform the user as needed. 
-
+        
 		// Get next command
 		std::cout << "> ";
 		std::getline (std::cin, command);
 	}
 
-	// Cean up
+	// Clean up
 	free(memory);
 	delete mmu;
 	delete page_table;
