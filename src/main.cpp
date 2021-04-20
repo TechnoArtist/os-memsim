@@ -22,10 +22,10 @@ mmu.cpp
 	- finish the print command 
 
 pagetable.cpp
-	- finish addEntry()
-	- finish getPhysicalAddress() 
-		- convert virtual addr to page_number and _offset
-		- finish the lookup
+	+ finish addEntry()
+	+ finish getPhysicalAddress() 
+		+ convert virtual addr to page_number and _offset
+		+ finish the lookup
 	- finish the print command
 
 
@@ -49,6 +49,7 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory);
 void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_table);
 void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table);
+void splitString(std::string text, char d, std::vector<std::string>& result); 
 
 int main(int argc, char **argv)
 {
@@ -75,21 +76,60 @@ int main(int argc, char **argv)
 	std::string command;
 	std::cout << "> ";
 	std::getline (std::cin, command);
+	std::vector<std::string> split_command; 
+	splitString(command, ' ', split_command); 
 	while (command != "exit") {
-        /*
-        page_table->addEntry(1026, 5);
-        page_table->addEntry(1024, 4);
-        page_table->addEntry(1025, 8);
-        page_table->addEntry(1028, 13);
-        page_table->print();
-        */
-		// Handle command
-		// TODO: implement this!
 		
-		// First, split the command by spaces (todo: find c++ version of splitString() and the var (array?) to hold it)
-		// Iterate through the first section of each command (its name), else { bad command, try again }. 
-		// Inside a specific command, error check the input (right number of inputs? Right types? Bounded?) and convert
-		// Then use the appropriate method for the command and inform the user as needed. 
+		page_table->addEntry(1026, 5);
+		page_table->addEntry(1024, 4);
+		page_table->addEntry(1025, 8);
+		page_table->addEntry(1028, 13);
+		page_table->print();
+		
+	   	
+		// Handle commands
+		if(split_command[0].compare("print") == 0) {
+			// TODO handle command (include input error checking)
+			/* print <object>
+				If <object> is "mmu", print the MMU memory table
+				If <object> is "page", print the page table (do not need to print anything for free frames)
+				If <object> is "processes", print a list of PIDs for processes that are still running
+				If <object> is a "<PID>:<var_name>", print the value of the variable for that process
+					If variable has more than 4 elements, just print the first 4 followed by "... [N items]" (where N is the number of elements)
+			*/
+		} else if(split_command[0].compare("create") == 0) {
+			// TODO handle command (include input error checking)
+			/* create <text_size> <data_size>
+				Initializes a new process
+				Prints the PID
+			*/
+		} else if(split_command[0].compare("allocate") == 0) {
+			// TODO handle command (include input error checking)
+			/* allocate <PID> <var_name> <data_type> <number_of_elements>
+				Allocated memory on the heap (how much depends on the data type and the number of elements)
+				Print the virtual memory address
+			*/
+		} else if(split_command[0].compare("set") == 0) {
+			// TODO handle command (include input error checking)
+			/* set <PID> <var_name> <offset> <value_0> <value_1> <value_2> ... <value_N>
+				Set the value for variable <var_name> starting at <offset>
+				Note: multiple contiguous values can be set with one command
+			*/
+		} else if(split_command[0].compare("free") == 0) {
+			// TODO handle command (include input error checking)
+			/* free <PID> <var_name>
+				Deallocate memory on the heap that is associated with <var_name>
+			*/
+		} else if(split_command[0].compare("terminate") == 0) {
+			// TODO handle command (include input error checking)
+			/* terminate <PID>
+				Kill the specified process
+				Free all memory associated with this process
+			*/
+		} else {
+			// TODO "Bad command, try again"
+		}
+		// exit is handled by the while loop. 
 
 		// Get next command
 		std::cout << "> ";
@@ -134,7 +174,7 @@ void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table
 	//allocateVariable(); 
 	
 	//   - print pid
-	printf("%s", pid); //TODO formatting
+	printf("%i", pid); //TODO formatting
 }
 
 void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table)
@@ -168,3 +208,66 @@ void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table)
 	//   - remove process from MMU
 	//   - free all pages associated with given process
 }
+
+
+/*
+	text: string to split
+	d: character delimiter to split `text` on
+	result: vector of strings - result will be stored here
+*/
+void splitString(std::string text, char d, std::vector<std::string>& result)
+{
+	enum states { NONE, IN_WORD, IN_STRING } state = NONE;
+
+	int i;
+	std::string token;
+	result.clear();
+	for (i = 0; i < text.length(); i++)
+	{
+		char c = text[i];
+		switch (state) {
+			case NONE:
+				if (c != d)
+				{
+					if (c == '\"')
+					{
+						state = IN_STRING;
+						token = "";
+					}
+					else
+					{
+						state = IN_WORD;
+						token = c;
+					}
+				}
+				break;
+			case IN_WORD:
+				if (c == d)
+				{
+					result.push_back(token);
+					state = NONE;
+				}
+				else
+				{
+					token += c;
+				}
+				break;
+			case IN_STRING:
+				if (c == '\"')
+				{
+					result.push_back(token);
+					state = NONE;
+				}
+				else
+				{
+					token += c;
+				}
+				break;
+		}
+	}
+	if (state != NONE)
+	{
+		result.push_back(token);
+	}
+} // splitString()
+

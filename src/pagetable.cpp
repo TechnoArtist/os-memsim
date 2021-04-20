@@ -3,6 +3,9 @@
 #include <string>
 #include <cstring>
 
+// TODO find a better solution than copying and renaming the method for each .cpp file
+void splitStringPagetable(std::string text, char d, std::vector<std::string>& result); 
+
 PageTable::PageTable(int page_size)
 {
 	_page_size = page_size;
@@ -80,12 +83,80 @@ void PageTable::print()
 	std::cout << "------+-------------+--------------" << std::endl;
 
 	std::vector<std::string> keys = sortedKeys();
-
+	
+	std::vector<std::string> splitkey; 
+	int pid; 
+	int pagenum; 
     std::map<std::string,int>::iterator iter;
     iter = _table.begin();
 	for (i = 0; i < keys.size(); i++)
-	{   //frame number
-		printf("%6u|%13i|%14i\n", iter->first, iter->first, iter->second);
+	{
+		splitStringPagetable(iter->first, '|', splitkey);
+		pid = atoi(splitkey[0].c_str());
+		pagenum = atoi(splitkey[1].c_str());
+		printf("%6i|%13i|%14i\n", pid, pagenum, iter->second);
         iter++;
 	}
 }
+
+
+/*
+	text: string to split
+	d: character delimiter to split `text` on
+	result: vector of strings - result will be stored here
+*/
+void splitStringPagetable(std::string text, char d, std::vector<std::string>& result)
+{
+	enum states { NONE, IN_WORD, IN_STRING } state = NONE;
+
+	int i;
+	std::string token;
+	result.clear();
+	for (i = 0; i < text.length(); i++)
+	{
+		char c = text[i];
+		switch (state) {
+			case NONE:
+				if (c != d)
+				{
+					if (c == '\"')
+					{
+						state = IN_STRING;
+						token = "";
+					}
+					else
+					{
+						state = IN_WORD;
+						token = c;
+					}
+				}
+				break;
+			case IN_WORD:
+				if (c == d)
+				{
+					result.push_back(token);
+					state = NONE;
+				}
+				else
+				{
+					token += c;
+				}
+				break;
+			case IN_STRING:
+				if (c == '\"')
+				{
+					result.push_back(token);
+					state = NONE;
+				}
+				else
+				{
+					token += c;
+				}
+				break;
+		}
+	}
+	if (state != NONE)
+	{
+		result.push_back(token);
+	}
+} // splitString()

@@ -62,6 +62,9 @@ void Mmu::print()
 		for (j = 0; j < _processes[i]->variables.size(); j++)
 		{
 			// TODO: print all variables (excluding <FREE_SPACE> entries)
+			
+			// Use .c_str() to convert std::string to char*
+			// Use splitString(std::string string_to_split, char delim_char, std::vector<std::string> variable_for_result) to split a string
 		}
 	}
 }
