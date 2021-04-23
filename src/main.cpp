@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <math.h>
 #include "mmu.h"
 #include "pagetable.h"
 
@@ -206,10 +207,10 @@ void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table
 	//   - create new process in the MMU
 	uint32_t pid = mmu->createProcess(); 
 	
-	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK>
-	allocateVariable(pid, , DataType::, , mmu, page_table, );
-	allocateVariable();
-	allocateVariable();
+	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> TODO add page_size
+	//allocateVariable(pid, "<TEXT>", DataType::Char, , mmu, page_table, ); TODO add <TEXT> size
+	//allocateVariable(pid, "<GLOBALS>", DataType::Char, , mmu, page_table, ); TODO add <GLOBALS> size
+	//allocateVariable(pid, "<STACK>", DataType::Char, , mmu, page_table, ); TODO add <STACK> size
 	/*
 	Assign a PID - unique number (start at 1024 and increment up)
 	Allocate some amount of startup memory for the process
@@ -238,9 +239,11 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 		single_var_size = 8; 
 	} 
 	all_vars_size = num_elements * single_var_size; 
-	//   - find first free space within a page already allocated to this process that is large enough to fit the new variable
 	Process* process; 
-	// Find the process in the mmu
+	Variable* free_space = nullptr; 
+	uint32_t address; 
+	uint32_t end_of_address; 
+	//   - find first free space within a page already allocated to this process that is large enough to fit the new variable
 	std::vector<Process*> process_list = mmu->getProcesses(); 
 	for (int i = 0; i < process_list.size(); i++) {
 		if (process_list[i]->pid == pid) {
@@ -249,25 +252,36 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 	}
 	for (int i = 0; i < process->variables.size(); i++) {
 		if (process->variables[i]->type == DataType::FreeSpace) {
-			if(process->variables[i]->size >= all_vars_size) {
-				uint32_t newVirtualAddress = process->variables[i]->virtual_address;
-				uint32_t lastVirtualAddress = newVirtualAddress + all_vars_size - 1;
-				process->variables[i]->size = process->variables[i]->size-all_vars_size;
-				process->variables[i]->virtual_address = all_vars_size + process->variables[i]->virtual_address;
-				mmu->addVariableToProcess(pid,var_name,type,all_vars_size, newVirtualAddress);
-				uint32_t numBits = (uint32_t)log2(page_size);//num bits for page offset
-    			uint32_t firstPage = newVirtualAddress >> numBits;
-				uint32_t LastPage = lastVirtualAddress >> numBits;
-				for(int j = firstPage; j <= LastPage; j++) {
-					//add method to page table to check if page exist 
-					if (!(page_table->entryExist(pid, j))) {
-						page_table->addEntry(pid,j);
-					}
+			// TODO check if the space is split across pages, and whether that still fits the variables
+			if (process->variables[i]->size > all_vars_size) {
+				uint32_t address = process->variables[i]->virtual_address; 
+				uint32_t end_of_address = address + all_vars_size - 1; 
+				free_space = process->variables[i]; 
+				free_space->size -= all_vars_size; 
+				free_space->virtual_address += all_vars_size; 
+				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, address); 
+				uint32_t first_page = address >> (uint32_t)log2(page_size); 
+				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
+				for (int j = first_page; j <= last_page; j++) {
+					// TODO new pagetable method: entryExists()
+					// Note: "entry" refers to a page with a specific pid. 
+					if(!page_table->entryExists(pid, j)) {
+						page_table->addEntry(pid, j);  
+					} 
 				}
-				break;
-			} 
+				break; 
+			} else if (process->variables[i]->size == all_vars_size) {
+				// TODO This is exactly the right size space, replace it
+				
+			}
 		}
 	}
+	//   - if no hole is large enough, allocate new page(s)
+	if (free_space == nullptr) {
+		// TODO allocate new pages to fit var
+	}
+	//   - print virtual memory address
+	printf("%i\n", address);
 }
 
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory)
