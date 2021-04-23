@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <math.h>
 #include "mmu.h"
 #include "pagetable.h"
 
@@ -206,10 +207,10 @@ void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table
 	//   - create new process in the MMU
 	uint32_t pid = mmu->createProcess(); 
 	
-	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK>
-	//allocateVariable(pid, , DataType::, , mmu, page_table, );
-	//allocateVariable();
-	//allocateVariable();
+	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> TODO add page_size
+	//allocateVariable(pid, "<TEXT>", DataType::Char, , mmu, page_table, ); TODO add <TEXT> size
+	//allocateVariable(pid, "<GLOBALS>", DataType::Char, , mmu, page_table, ); TODO add <GLOBALS> size
+	//allocateVariable(pid, "<STACK>", DataType::Char, , mmu, page_table, ); TODO add <STACK> size
 	/*
 	Assign a PID - unique number (start at 1024 and increment up)
 	Allocate some amount of startup memory for the process
@@ -240,9 +241,7 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 	all_vars_size = num_elements * single_var_size; 
 	//   - find first free space within a page already allocated to this process that is large enough to fit the new variable
 	Process* process; 
-	int* page_remaining_sizes; // Start each int at page_size
-	int current_page = 0; 
-	int free_page = -1; 
+	Variable* free_space = nullptr; 
 	// Find the process in the mmu
 	std::vector<Process*> process_list = mmu->getProcesses(); 
 	for (int i = 0; i < process_list.size(); i++) {
@@ -251,38 +250,54 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 		}
 	}
 	// Iterate through each variable in the process
-	page_remaining_sizes[0] = page_size; 
 	for (int i = 0; i < process->variables.size(); i++) {
-		// Iterate through each page...? Remember to set remaining_size at page_size when flipping pages
-		// TODO if (something), page flip
-		{
-			// Check if the current page is what we need
-			if (page_remaining_sizes[current_page] >= all_vars_size) {
-				free_page = current_page; 
+		// Find a free space
+		if (process->variables[i]->type == DataType::FreeSpace) {
+			// Check if it's a big enough space TODO check if the space is split across pages, and whether that still fits
+			if (process->variables[i]->size > all_vars_size) {
+				// This is a big enough space, use it 
+				uint32_t address = process->variables[i]->virtual_address; 
+				uint32_t end_of_address = address + all_vars_size - 1; 
+				
+				// Shrink & shift the free space
+				free_space = process->variables[i]; 
+				free_space->size -= all_vars_size; 
+				free_space->virtual_address += all_vars_size; 
+				
+				// Add new variable in the space
+				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, address); 
+				
+				uint32_t first_page = address >> (uint32_t)log2(page_size); 
+				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
+				
+				// TODO add pages as needed
+				for (int j = first_page; j <= last_page; j++) {
+					// TODO new pagetable method: entryExists()
+					// Note: "entry" refers to a page with a specific pid. 
+					if(!page_table->entryExists(pid, j)) {
+						page_table->addEntry(pid, j);  
+					} 
+				}
+				
 				break; 
+				
+			} else if (process->variables[i]->size == all_vars_size) {
+				// This is exactly the right size, replace it
+				
 			}
-			// Flip the page 
-			current_page++; 
-			page_remaining_sizes[current_page] = page_size; 
 		}
-		// add variable sizes to page
-		page_remaining_sizes[current_page] -= process->variables[i]->size; 	
+		
 		// TODO question: Are the variables sorted by virtual address, or do they jump around pages? 
+		// TODO cleanup: instead of calculating the page's free space, watch for the <free space> variables. Don't need the page_remaining_sizes. 
+		// TODO cleanup: Use the above variable's virtual address to see what page(s) are being used. 
 	}
+	
 	//   - if no hole is large enough, allocate new page(s)
-	if (free_page == -1) {
-		free_page = /*TODO largest page plus one*/
-		page_table->addEntry(pid, free_page); // TODO do we need to do the checking for victims here, or in this method? 
-	}
+	
 	//   - insert variable into MMU
-	// TODO question: How to find the virtual address? 
-	uint32_t virt_addr; // TODO 
-    uint32_t numBits = (uint32_t)log2(page_size);//num bits for page offset
-    virt_addr = (uint32_t)free_page << numBits;
-    virt_addr = (uint32_t)(page_size - 1) & offset;
-	mmu->addVariableToProcess(pid, var_name, type, all_vars_size, virt_addr); 
+	
 	//   - print virtual memory address
-	printf("%i\n", virt_addr);
+	printf("%i\n", address);
 }
 
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory)
