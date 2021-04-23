@@ -68,3 +68,7 @@ void Mmu::print()
 		}
 	}
 }
+
+std::vector<Process*> Mmu::getProcesses() {
+	return _processes; 
+}

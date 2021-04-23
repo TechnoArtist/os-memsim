@@ -99,6 +99,10 @@ void PageTable::print()
 	}
 }
 
+std::map<std::string, int> PageTable::getTable() {
+	return _table; 
+}
+
 
 /*
 	text: string to split
