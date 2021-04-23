@@ -239,38 +239,29 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 		single_var_size = 8; 
 	} 
 	all_vars_size = num_elements * single_var_size; 
-	//   - find first free space within a page already allocated to this process that is large enough to fit the new variable
 	Process* process; 
 	Variable* free_space = nullptr; 
-	// Find the process in the mmu
+	uint32_t address; 
+	uint32_t end_of_address; 
+	//   - find first free space within a page already allocated to this process that is large enough to fit the new variable
 	std::vector<Process*> process_list = mmu->getProcesses(); 
 	for (int i = 0; i < process_list.size(); i++) {
 		if (process_list[i]->pid == pid) {
 			process = process_list[i]; 
 		}
 	}
-	// Iterate through each variable in the process
 	for (int i = 0; i < process->variables.size(); i++) {
-		// Find a free space
 		if (process->variables[i]->type == DataType::FreeSpace) {
-			// Check if it's a big enough space TODO check if the space is split across pages, and whether that still fits
+			// TODO check if the space is split across pages, and whether that still fits the variables
 			if (process->variables[i]->size > all_vars_size) {
-				// This is a big enough space, use it 
 				uint32_t address = process->variables[i]->virtual_address; 
 				uint32_t end_of_address = address + all_vars_size - 1; 
-				
-				// Shrink & shift the free space
 				free_space = process->variables[i]; 
 				free_space->size -= all_vars_size; 
 				free_space->virtual_address += all_vars_size; 
-				
-				// Add new variable in the space
 				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, address); 
-				
 				uint32_t first_page = address >> (uint32_t)log2(page_size); 
 				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
-				
-				// TODO add pages as needed
 				for (int j = first_page; j <= last_page; j++) {
 					// TODO new pagetable method: entryExists()
 					// Note: "entry" refers to a page with a specific pid. 
@@ -278,24 +269,17 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 						page_table->addEntry(pid, j);  
 					} 
 				}
-				
 				break; 
-				
 			} else if (process->variables[i]->size == all_vars_size) {
-				// This is exactly the right size, replace it
+				// TODO This is exactly the right size space, replace it
 				
 			}
 		}
-		
-		// TODO question: Are the variables sorted by virtual address, or do they jump around pages? 
-		// TODO cleanup: instead of calculating the page's free space, watch for the <free space> variables. Don't need the page_remaining_sizes. 
-		// TODO cleanup: Use the above variable's virtual address to see what page(s) are being used. 
 	}
-	
 	//   - if no hole is large enough, allocate new page(s)
-	
-	//   - insert variable into MMU
-	
+	if (free_space == nullptr) {
+		// TODO allocate new pages to fit var
+	}
 	//   - print virtual memory address
 	printf("%i\n", address);
 }
