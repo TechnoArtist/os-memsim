@@ -98,10 +98,12 @@ int main(int argc, char **argv)
 			*/
 		} else if(split_command[0].compare("create") == 0) {
 			// TODO handle command (include input error checking)
+			// TODO Must error check text/data size; Also parse input appropriately 
 			/* create <text_size> <data_size>
 				Initializes a new process
 				Prints the PID
 			*/
+			//createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table, int page_size);
 		} else if(split_command[0].compare("allocate") == 0) {
 			// TODO handle command (include input error checking)
 			/* allocate <PID> <var_name> <data_type> <number_of_elements>
@@ -200,28 +202,22 @@ void printStartMessage(int page_size)
 	std::cout << std::endl;
 }
 
-void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table)
-{
-	// TODO: implement this!
-	
-	//   - create new process in the MMU
-	uint32_t pid = mmu->createProcess(); 
-	
-	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> TODO add page_size
-	//allocateVariable(pid, "<TEXT>", DataType::Char, , mmu, page_table, ); TODO add <TEXT> size
-	//allocateVariable(pid, "<GLOBALS>", DataType::Char, , mmu, page_table, ); TODO add <GLOBALS> size
-	//allocateVariable(pid, "<STACK>", DataType::Char, , mmu, page_table, ); TODO add <STACK> size
-	/*
+void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table, int page_size)
+{	/*
 	Assign a PID - unique number (start at 1024 and increment up)
 	Allocate some amount of startup memory for the process
 		Text/Code: size of binary executable - user specified number (2048 - 16384 bytes)
 		Data/Globals: size of global variables - user specified number (0 - 1024 bytes)
 		Stack: constant (65536 bytes)
 	*/
-	// TODO question: What's the difference between allocating for these three variables? Are they allocated like normal variables, or are they not the same? 
-	
-	//   - print pid
-	printf("%i", pid); //TODO formatting
+	//   - create new process in the MMU
+	uint32_t pid = mmu->createProcess(); 
+	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> TODO add page_size
+	//TODO Question: should the text size and data size be used for both text and globals? 
+	allocateVariable(pid, "<TEXT>", DataType::Char, text_size, mmu, page_table, page_size); 
+	allocateVariable(pid, "<GLOBALS>", DataType::Char, data_size, mmu, page_table, page_size);
+	allocateVariable(pid, "<STACK>", DataType::Char, 65536, mmu, page_table, page_size);
+	printf("%i\n", pid);
 }
 
 void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table, int page_size)

@@ -76,6 +76,15 @@ int PageTable::getPhysicalAddress(uint32_t pid, uint32_t virtual_address)
 	return address;
 }
 
+bool PageTable::entryExists(int32_t pid, int page_number) {
+	try {
+		_table.at(std::to_string(pid) + "|" + std::to_string(page_number)); 
+	} catch (const std::out_of_range& e) {
+		return false;
+	}
+	return true;
+}
+
 void PageTable::print()
 {
 	int i;
