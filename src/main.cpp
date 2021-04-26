@@ -30,6 +30,11 @@ pagetable.cpp
 	+ finish the print command
 	+ add new method entryExists()
 
+Next steps: 
+- Finish that last section of the prompt loop print
+- Set up some kind of skeleton (even if it's shitty code) of the set command
+- Meet with teacher again, wait for reply (will meet at 2:30pm, then work)
+
 */
 
 void printStartMessage(int page_size);
@@ -95,7 +100,48 @@ int main(int argc, char **argv)
 				} else if (split_command[1] == "processes") {
 					//TODO question: How do you know a process is still running? Is it as simple as comparing PID's in the mmu and only printing each once?
 				} else if (special_case.size() > 1) {
-
+					Variable* var = mmu->findVariable(atoi(special_case[0].c_str()), special_case[1]); 
+					int item_size; 
+					int offset; 
+					int physical_address; 
+					
+					switch (var->type) {
+						case DataType::Char: 
+							item_size = 1; 
+							break; 
+						case DataType::Short: 
+							item_size = 2; 
+							break; 
+						case DataType::Int: 
+						case DataType::Float: 
+							item_size = 4; 
+							break; 
+						case DataType::Long: 
+						case DataType::Double: 
+							item_size = 8; 
+							break; 
+					}
+					
+					// TODO account for page breaks
+					for (int i = 0; i < var->size/item_size; i++) {
+						if (i >= 4) {
+							// Calculate remaining variables and print (see assignment formatting)
+							printf(""); 
+							break; 
+						}
+						offset = i * item_size; 
+						// Convert virtual address to physical address per item in variable
+						physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+						// Print the data at that frame+offset, for the length of item_size
+						printf(""); // TODO
+						
+					}
+					// Find the physical address (watch out for page breaks)
+						// Find the start of the virtual address, and the distance to next page break
+						// Find the variable data size
+					// Print the size-chunk of the variable, based on type, until it reaches 4 or runs out
+					// If it reaches 4, calculate remaining variables and print the number (formatted)
+					
 				} else {
 					printf("Error: Please select a valid option\n");
 				}
@@ -141,9 +187,9 @@ int main(int argc, char **argv)
 				printf("Error: Data type not recognized please enter a valid data type\n");
 			}
 			
-			if (!mmu->pidExists(pid)) {
+			if (mmu->findPID(pid) == nullptr) {
 				printf("error: pid not found\n"); 
-			} else if (mmu->variableExists(pid, var_name)) {
+			} else if (mmu->findVariable(pid, var_name) != nullptr) {
 				printf("error: variable already exists\n"); 
 			} else {
 				// When allocating: Error if allocation would exceed system memory (and skip allocating)
@@ -161,6 +207,29 @@ int main(int argc, char **argv)
 				Set the value for variable <var_name> starting at <offset>
 				Note: multiple contiguous values can be set with one command
 			*/
+			int 		pid		 = atoi(split_command[1].c_str()); 
+			std::string var_name = split_command[2]; 
+			int 		offset	 = atoi(split_command[3].c_str()); 
+			std::vector<std::string> values; 
+			Process* 	proc	 = mmu->findPID(pid); 
+			Variable* 	var		 = mmu->findVariable(pid, var_name); 
+			
+			for (int i = 0; i < split_command.size() - 4; i++) {
+				values[i] = split_command[i+4]; 
+			}
+			
+			if (proc == nullptr) {
+				printf("error: process not found"); 
+			} else if (var == nullptr) {
+				printf("error: variable not found"); 
+			} else {
+				for (int i = 0; i < values.size(); i++) {
+					//setVariable(pid, var_name, offset, values[i], mmu, page_table, memory); 
+					// TODO see "how to interact with void pointers" question
+				}
+			}
+			
+			
 		} else if(split_command[0].compare("free") == 0) {
 			// TODO handle command 
 			/* error checking: 
@@ -310,6 +379,10 @@ void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *valu
 	//   - insert `value` into `memory` at physical address
 	//   * note: this function only handles a single element (i.e. you'll need to call this within a loop when setting
 	//		   multiple elements of an array)
+	
+	int physical_address = page_table->getPhysicalAddress(pid, mmu->findVariable(pid, var_name)->virtual_address + offset);  
+	//(memory& + physical_address)* = value; 
+	// TODO question: How to interact with void pointers? Without a type, [] doesn't work, because it doesn't have sizes. 
 }
 
 void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_table)

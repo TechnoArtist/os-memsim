@@ -72,7 +72,7 @@ std::vector<Process*> Mmu::getProcesses() {
 	return _processes; 
 }
 
-bool Mmu::variableExists(uint32_t pid, std::string var_name) {
+Variable* Mmu::findVariable(uint32_t pid, std::string var_name) {
 	for (int i = 0; i < _processes.size(); i++) {
 		if (_processes[i]->pid == pid) {
 			Process* proc = _processes[i]; 
@@ -80,20 +80,20 @@ bool Mmu::variableExists(uint32_t pid, std::string var_name) {
 			for (int j = 0; j < proc->variables.size(); j++) {
 				var = proc->variables[j]; 
 				if (var->name == var_name) {
-					return true; 
+					return var; 
 				}//if
 			}//for
 			break; 
 		}//if
 	}//for
-	return false; 
+	return nullptr; 
 } // variableExists()
 
-bool Mmu::pidExists(uint32_t pid) {
+Process* Mmu::findPID(uint32_t pid) {
 	for (int i = 0; i < _processes.size(); i++) {
 		if (_processes[i]->pid == pid) {
-			return true; 
+			return _processes[i]; 
 		}//if
 	}//for
-	return false; 
+	return nullptr; 
 } // pidExists()
