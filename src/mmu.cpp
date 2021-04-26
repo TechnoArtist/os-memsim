@@ -61,10 +61,9 @@ void Mmu::print()
 	{
 		for (j = 0; j < _processes[i]->variables.size(); j++)
 		{
-			// TODO: print all variables (excluding <FREE_SPACE> entries)
-			// Use .c_str() to convert std::string to char*
-			// Use splitString(std::string string_to_split, char delim_char, std::vector<std::string> variable_for_result) to split a string
-			printf("%i %s 0x%x %i",_processes[i]->pid, _processes[i]->variables[j]->name.c_str(), _processes[i]->variables[j]->virtual_address, _processes[i]->variables[j]->size);
+			Variable* var = _processes[i]->variables[j]; 
+			if (var->type != DataType::FreeSpace) printf("%6i %15s %14x %5i", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
+			// TODO double check formatting
 		}
 	}
 }
@@ -72,3 +71,29 @@ void Mmu::print()
 std::vector<Process*> Mmu::getProcesses() {
 	return _processes; 
 }
+
+bool Mmu::variableExists(uint32_t pid, std::string var_name) {
+	for (int i = 0; i < _processes.size(); i++) {
+		if (_processes[i]->pid == pid) {
+			Process* proc = _processes[i]; 
+			Variable* var; 
+			for (int j = 0; j < proc->variables.size(); j++) {
+				var = proc->variables[j]; 
+				if (var->name == var_name) {
+					return true; 
+				}//if
+			}//for
+			break; 
+		}//if
+	}//for
+	return false; 
+} // variableExists()
+
+bool Mmu::pidExists(uint32_t pid) {
+	for (int i = 0; i < _processes.size(); i++) {
+		if (_processes[i]->pid == pid) {
+			return true; 
+		}//if
+	}//for
+	return false; 
+} // pidExists()

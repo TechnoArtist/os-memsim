@@ -11,39 +11,29 @@ All starter todos are in the .cpp files.
 The .h files are useful reference material. 
 
 main.cpp
-	- Prompt loop (prompting the user for input, and handling their commands; the main loop) 
+	~ Prompt loop (prompting the user for input, and handling their commands; the main loop) 
 		* This will likely tie together the program
-	- createProcess() (the "create" command)
-	- allocateVariable() (the "allocate" command)
+	~ createProcess() (the "create" command)
+	~ allocateVariable() (the "allocate" command)
 	- setVariable() (the "set" command)
 	- freeVariable() (the "free" command)
 	- terminateProcess() (the exit command)
 
 mmu.cpp
-	- finish the print command 
+	+ finish the print command 
 
 pagetable.cpp
 	+ finish addEntry()
 	+ finish getPhysicalAddress() 
 		+ convert virtual addr to page_number and _offset
 		+ finish the lookup
-	- finish the print command
-
-
-I'd recommend starting with the pagetable todos, as they seem least dependent on other factors. 
-I'd then recommend working on the various incomplete methods in main, adding them one by one to the prompt loop for testing. 
-Not sure exactly when the print commands should be done. Maybe before the main methods, or maybe in parallel, if they have matching sections. 
-
-Next focuses: 
-	- allocateVariable() 
-	- - createProcess() (relies on allocateVariable())
-	- ? Pagetable (currently have questions on splitting the string)
-	- ? Mmu printing (see above questions)
+	+ finish the print command
+	+ add new method entryExists()
 
 */
 
 void printStartMessage(int page_size);
-void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table);
+void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table, int page_size);
 void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table, int page_size);
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory);
 void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_table);
@@ -83,7 +73,9 @@ int main(int argc, char **argv)
 		page_table->addEntry(1024, 4);
 		page_table->addEntry(1025, 8);
 		page_table->addEntry(1028, 13);
-		page_table->print();
+		page_table->print(); 
+		//createProcess(2048, 2048, mmu, page_table, page_size); 
+		//mmu->print();
 		
 	   	
 		// Handle commands
@@ -96,28 +88,28 @@ int main(int argc, char **argv)
 				If <object> is a "<PID>:<var_name>", print the value of the variable for that process
 					If variable has more than 4 elements, just print the first 4 followed by "... [N items]" (where N is the number of elements)
 			*/
+		
 		} else if(split_command[0].compare("create") == 0) {
-			// TODO handle command (include input error checking)
-			// TODO Must error check text/data size; Also parse input appropriately 
-			/* create <text_size> <data_size>
-				Initializes a new process
-				Prints the PID
-			*/
-			//createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table, int page_size);
+			// create <text_size> <data_size>
+			int text_size = (uint32_t)atoi(split_command[1].c_str()); 
+			int data_size = (uint32_t)atoi(split_command[2].c_str()); 
+			
+			if (text_size < 2048|| 16384 < text_size) {
+				printf("error: text size out of bounds (2048 to 16384 bytes)"); 
+			} else if (data_size < 0 || 1024 < data_size) {
+				printf("error: data size out of bounds (0 to 1024 bytes)"); 
+			} else {
+				createProcess(text_size, data_size, mmu, page_table, page_size); 
+			}
+			
+			
 		} else if(split_command[0].compare("allocate") == 0) {
-			// TODO handle command (include input error checking)
-			/* allocate <PID> <var_name> <data_type> <number_of_elements>
-				Allocated memory on the heap (how much depends on the data type and the number of elements)
-				Print the virtual memory address
-			*/
+			// allocate <PID> <var_name> <data_type> <number_of_elements>
 			uint32_t pid = (uint32_t)atoi(split_command[1].c_str()); 
-			// TODO Error checking: Is an int? 
-			// 		Error checking: PID > 1024
-			
-			std::string var_name = split_command[2]; // TODO Error checking: If var name already exists, print "Error: variable already exists"
-			
-			// FreeSpace, Char, Short, Int, Float, Long, Double
+			std::string var_name = split_command[2]; 
 			DataType type; 
+			uint32_t num_elements = (uint32_t)atoi(split_command[4].c_str()); 
+			
 			if (split_command[3].c_str() == "FreeSpace") { 
 				type = DataType::FreeSpace; 
 			} else if (split_command[3].c_str() == "Short") {
@@ -133,31 +125,35 @@ int main(int argc, char **argv)
 			} else if (split_command[3].c_str() == "Double") {
 				type = DataType::Double; 
 			} else {
-				// TODO: ERROR bad data type
+				// bad data type
 			}
 			
-			uint32_t num_elements = (uint32_t)atoi(split_command[4].c_str()); // TODO error checking: Is an int? Is greater than 0? 
-			
-			
-			// When allocating: Error if allocation would exceed system memory (and skip allocating)
-			allocateVariable(pid, var_name, type, num_elements, mmu, page_table, page_size); 
-			
-			/* TODO Error checking: 
-				1024 < Page size < 32,768
-				Page size power of 2 (try log2()^2, and see if it changes, or try log2() and see if it's an int; Math.log_2() returns a double)
-					10.0, 11.0, 12.0, 13.0, 14.0, or 15.0
-			*/ 
-			
+			if (!mmu->pidExists(pid)) {
+				printf("error: pid not found\n"); 
+			} else if (mmu->variableExists(pid, var_name)) {
+				printf("error: variable already exists\n"); 
+			} else {
+				// When allocating: Error if allocation would exceed system memory (and skip allocating)
+				allocateVariable(pid, var_name, type, num_elements, mmu, page_table, page_size); 
+			}
 			
 			
 		} else if(split_command[0].compare("set") == 0) {
-			// TODO handle command (include input error checking)
+			// TODO handle command 
+			/* error checking: 
+			 - if <PID> does not exist, print "error: process not found"
+			 - if <var_name> does not exist, print "error: variable not found"
+			*/
 			/* set <PID> <var_name> <offset> <value_0> <value_1> <value_2> ... <value_N>
 				Set the value for variable <var_name> starting at <offset>
 				Note: multiple contiguous values can be set with one command
 			*/
 		} else if(split_command[0].compare("free") == 0) {
-			// TODO handle command (include input error checking)
+			// TODO handle command 
+			/* error checking: 
+			 - if <PID> does not exist, print "error: process not found"
+			 - if <var_name> does not exist, print "error: variable not found"
+			*/
 			/* free <PID> <var_name>
 				Deallocate memory on the heap that is associated with <var_name>
 			*/
@@ -169,6 +165,7 @@ int main(int argc, char **argv)
 			*/
 		} else {
 			// TODO "Bad command, try again"
+			printf("error: command not recognized\n"); 
 		}
 		// exit is handled by the while loop. 
 
@@ -217,6 +214,7 @@ void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table
 	allocateVariable(pid, "<TEXT>", DataType::Char, text_size, mmu, page_table, page_size); 
 	allocateVariable(pid, "<GLOBALS>", DataType::Char, data_size, mmu, page_table, page_size);
 	allocateVariable(pid, "<STACK>", DataType::Char, 65536, mmu, page_table, page_size);
+	//   - print the pid
 	printf("%i\n", pid);
 }
 
