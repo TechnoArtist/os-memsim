@@ -68,16 +68,10 @@ int main(int argc, char **argv)
 	std::vector<std::string> split_command; 
 	splitString(command, ' ', split_command); 
 	while (command != "exit") {
-		
-		page_table->addEntry(1026, 5);
-		page_table->addEntry(1024, 4);
-		page_table->addEntry(1025, 8);
-		page_table->addEntry(1028, 13);
-		page_table->print(); 
+		 
 		//createProcess(2048, 2048, mmu, page_table, page_size); 
 		//mmu->print();
 		
-	   	
 		// Handle commands
 		if(split_command[0].compare("print") == 0) {
 			// TODO handle command (include input error checking)
@@ -88,13 +82,31 @@ int main(int argc, char **argv)
 				If <object> is a "<PID>:<var_name>", print the value of the variable for that process
 					If variable has more than 4 elements, just print the first 4 followed by "... [N items]" (where N is the number of elements)
 			*/
+			if(split_command.size() < 2) {
+				// print default
+			} else {
+				std::vector<std::string> special_case; 
+				splitString(split_command[1], ':', special_case);
+
+				if (split_command[1] == "mmu") {
+					mmu->print();
+				} else if (split_command[1] == "page") {
+					page_table->print();
+				} else if (split_command[1] == "processes") {
+					//TODO question: How do you know a process is still running? Is it as simple as comparing PID's in the mmu and only printing each once?
+				} else if (special_case.size() > 1) {
+
+				} else {
+					printf("Error: Please select a valid option\n");
+				}
+			}
 		
 		} else if(split_command[0].compare("create") == 0) {
 			// create <text_size> <data_size>
 			int text_size = (uint32_t)atoi(split_command[1].c_str()); 
 			int data_size = (uint32_t)atoi(split_command[2].c_str()); 
 			
-			if (text_size < 2048|| 16384 < text_size) {
+			if (text_size < 2048 || 16384 < text_size) {
 				printf("error: text size out of bounds (2048 to 16384 bytes)"); 
 			} else if (data_size < 0 || 1024 < data_size) {
 				printf("error: data size out of bounds (0 to 1024 bytes)"); 
@@ -125,7 +137,8 @@ int main(int argc, char **argv)
 			} else if (split_command[3].c_str() == "Double") {
 				type = DataType::Double; 
 			} else {
-				// bad data type
+				//TODO question: If we print extra errors will that cause problems testing?
+				printf("Error: Data type not recognized please enter a valid data type\n");
 			}
 			
 			if (!mmu->pidExists(pid)) {
@@ -209,8 +222,7 @@ void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table
 	*/
 	//   - create new process in the MMU
 	uint32_t pid = mmu->createProcess(); 
-	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> TODO add page_size
-	//TODO Question: should the text size and data size be used for both text and globals? 
+	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> 
 	allocateVariable(pid, "<TEXT>", DataType::Char, text_size, mmu, page_table, page_size); 
 	allocateVariable(pid, "<GLOBALS>", DataType::Char, data_size, mmu, page_table, page_size);
 	allocateVariable(pid, "<STACK>", DataType::Char, 65536, mmu, page_table, page_size);
@@ -257,7 +269,6 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 				uint32_t first_page = address >> (uint32_t)log2(page_size); 
 				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
 				for (int j = first_page; j <= last_page; j++) {
-					// TODO new pagetable method: entryExists()
 					// Note: "entry" refers to a page with a specific pid. 
 					if(!page_table->entryExists(pid, j)) {
 						page_table->addEntry(pid, j);  
@@ -266,6 +277,19 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 				break; 
 			} else if (process->variables[i]->size == all_vars_size) {
 				// TODO This is exactly the right size space, replace it
+				uint32_t address = process->variables[i]->virtual_address; 
+				uint32_t end_of_address = address + all_vars_size - 1;
+				uint32_t first_page = address >> (uint32_t)log2(page_size); 
+				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
+				for (int j = first_page; j <= last_page; j++) {
+					// Note: "entry" refers to a page with a specific pid. 
+					if(!page_table->entryExists(pid, j)) {
+						page_table->addEntry(pid, j);  
+					} 
+				}
+				free_space = process->variables[i]; 
+				free_space->name = var_name; 
+				free_space->type = type; 
 				
 			}
 		}
@@ -273,6 +297,7 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 	//   - if no hole is large enough, allocate new page(s)
 	if (free_space == nullptr) {
 		// TODO allocate new pages to fit var
+		// TODO question: How do we tell the page number to add the variable to? Is it as easy as adding 1 or more complicated?
 	}
 	//   - print virtual memory address
 	printf("%i\n", address);
