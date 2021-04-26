@@ -71,13 +71,9 @@ int main(int argc, char **argv)
 	std::cout << "> ";
 	std::getline (std::cin, command);
 	std::vector<std::string> split_command; 
-	splitString(command, ' ', split_command); 
+	splitString(command, ' ', split_command);
 	while (command != "exit") {
-		 
-		//createProcess(2048, 2048, mmu, page_table, page_size); 
-		//mmu->print();
 		
-		// Handle commands
 		if(split_command[0].compare("print") == 0) {
 			// TODO handle command (include input error checking)
 			/* print <object>
@@ -98,7 +94,10 @@ int main(int argc, char **argv)
 				} else if (split_command[1] == "page") {
 					page_table->print();
 				} else if (split_command[1] == "processes") {
-					//TODO question: How do you know a process is still running? Is it as simple as comparing PID's in the mmu and only printing each once?
+					std::vector<Process*> processList = mmu->getProcesses();
+					for (int i = 0; i < processList.size(); i++) {
+						printf("%i\n", processList[i]->pid);
+					}
 				} else if (special_case.size() > 1) {
 					Variable* var = mmu->findVariable(atoi(special_case[0].c_str()), special_case[1]); 
 					int item_size; 
@@ -121,27 +120,28 @@ int main(int argc, char **argv)
 							item_size = 8; 
 							break; 
 					}
-					
-					// TODO account for page breaks
+						// TODO account for page breaks
+					int soFar_variables = 0;
+					void* value; 
 					for (int i = 0; i < var->size/item_size; i++) {
-						if (i >= 4) {
-							// Calculate remaining variables and print (see assignment formatting)
-							printf(""); 
-							break; 
-						}
 						offset = i * item_size; 
-						// Convert virtual address to physical address per item in variable
-						physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-						// Print the data at that frame+offset, for the length of item_size
-						printf(""); // TODO
-						
+						if (soFar_variables <= 4) {
+							// Calculate remaining variables and print (see assignment formatting)
+							// Convert virtual address to physical address per item in variable
+							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+							memcpy(value, memory + physical_address, item_size);  
+							printf("%i\n",value);   
+						} else {
+							printf("... [%i items]\n", (var->size/item_size)-i);
+							break;
+						}
+						soFar_variables++;
 					}
 					// Find the physical address (watch out for page breaks)
 						// Find the start of the virtual address, and the distance to next page break
 						// Find the variable data size
 					// Print the size-chunk of the variable, based on type, until it reaches 4 or runs out
-					// If it reaches 4, calculate remaining variables and print the number (formatted)
-					
+					// If it reaches 4, calculate remaining variables and print the number (formatted)	
 				} else {
 					printf("Error: Please select a valid option\n");
 				}
@@ -152,10 +152,10 @@ int main(int argc, char **argv)
 			int text_size = (uint32_t)atoi(split_command[1].c_str()); 
 			int data_size = (uint32_t)atoi(split_command[2].c_str()); 
 			
-			if (text_size < 2048 || 16384 < text_size) {
-				printf("error: text size out of bounds (2048 to 16384 bytes)"); 
-			} else if (data_size < 0 || 1024 < data_size) {
-				printf("error: data size out of bounds (0 to 1024 bytes)"); 
+			if ((text_size < 2048) || (text_size > 16384)) {
+				printf("error: text size out of bounds (2048 to 16384 bytes)\n"); 
+			} else if ((data_size < 0) || (data_size > 1024)) {
+				printf("error: data size out of bounds (0 to 1024 bytes)\n"); 
 			} else {
 				createProcess(text_size, data_size, mmu, page_table, page_size); 
 			}
@@ -254,6 +254,7 @@ int main(int argc, char **argv)
 		// Get next command
 		std::cout << "> ";
 		std::getline (std::cin, command);
+		splitString(command, ' ', split_command);
 	}
 
 	// Clean up
@@ -363,13 +364,13 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 			}
 		}
 	}
-	//   - if no hole is large enough, allocate new page(s)
-	if (free_space == nullptr) {
-		// TODO allocate new pages to fit var
-		// TODO question: How do we tell the page number to add the variable to? Is it as easy as adding 1 or more complicated?
+	if (!(free_space == nullptr)) {
+		// - print virtual memory address
+		printf("%i\n", address);
+	} else {
+		printf("Error: allocation would exceed system memory\n");
 	}
-	//   - print virtual memory address
-	printf("%i\n", address);
+	
 }
 
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory)
@@ -378,17 +379,19 @@ void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *valu
 	//   - look up physical address for variable based on its virtual address / offset
 	//   - insert `value` into `memory` at physical address
 	//   * note: this function only handles a single element (i.e. you'll need to call this within a loop when setting
-	//		   multiple elements of an array)
+	//		   multiple elements of an array)	
+	int physical_address = page_table->getPhysicalAddress(pid, mmu->findVariable(pid, var_name)->virtual_address + offset); 
+	memcpy((char*)memory+physical_address,value, mmu->findVariable(pid,var_name)->type); 
 	
-	int physical_address = page_table->getPhysicalAddress(pid, mmu->findVariable(pid, var_name)->virtual_address + offset);  
-	//(memory& + physical_address)* = value; 
-	// TODO question: How to interact with void pointers? Without a type, [] doesn't work, because it doesn't have sizes. 
 }
 
 void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_table)
 {
 	// TODO: implement this!
 	//   - remove entry from MMU
+	Variable* toRemove = mmu->findVariable(pid, var_name);
+	toRemove->type = DataType::FreeSpace;
+	toRemove->name = "<FREE_SPACE>"; 
 	//   - free page if this variable was the only one on a given page
 }
 
