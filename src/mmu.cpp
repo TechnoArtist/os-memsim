@@ -62,7 +62,12 @@ void Mmu::print()
 		for (j = 0; j < _processes[i]->variables.size(); j++)
 		{
 			Variable* var = _processes[i]->variables[j]; 
+<<<<<<< Updated upstream
 			if (var->type != DataType::FreeSpace) printf("%6i %15s 0x%14x %5i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
+=======
+			if (var->type != DataType::FreeSpace) printf("%6i %15s %14x %5i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
+			// TODO double check formatting
+>>>>>>> Stashed changes
 		}
 	}
 }

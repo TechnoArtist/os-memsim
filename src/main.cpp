@@ -28,18 +28,18 @@ pagetable.cpp
 		+ convert virtual addr to page_number and _offset
 		+ finish the lookup
 	+ finish the print command
-	+ add new method entryExists()
 
-Next steps: 
-- Finish that last section of the prompt loop print
-- Set up some kind of skeleton (even if it's shitty code) of the set command
-- Meet with teacher again, wait for reply (will meet at 2:30pm, then work)
+
+TODO somewhere, combine adjacent free spaces
+
+Consider moving method prints from end-of-method to return values, printing in the prompt loop
+Consider creating a method for converting datatype to size
 
 */
 
 void printStartMessage(int page_size);
 void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table, int page_size);
-void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table, int page_size);
+uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table, int page_size);
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory);
 void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_table);
 void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table);
@@ -75,20 +75,12 @@ int main(int argc, char **argv)
 	while (command != "exit") {
 		
 		if(split_command[0].compare("print") == 0) {
-			// TODO handle command (include input error checking)
-			/* print <object>
-				If <object> is "mmu", print the MMU memory table
-				If <object> is "page", print the page table (do not need to print anything for free frames)
-				If <object> is "processes", print a list of PIDs for processes that are still running
-				If <object> is a "<PID>:<var_name>", print the value of the variable for that process
-					If variable has more than 4 elements, just print the first 4 followed by "... [N items]" (where N is the number of elements)
-			*/
+			// print <object>
 			if(split_command.size() < 2) {
-				// print default
+				printf("Error: Missing argument. Please select an option to print ('help' for details).\n"); 
 			} else {
 				std::vector<std::string> special_case; 
 				splitString(split_command[1], ':', special_case);
-
 				if (split_command[1] == "mmu") {
 					mmu->print();
 				} else if (split_command[1] == "page") {
@@ -120,30 +112,22 @@ int main(int argc, char **argv)
 							item_size = 8; 
 							break; 
 					}
-						// TODO account for page breaks
-					int soFar_variables = 0;
+					
+					// TODO account for page breaks
+					int num_elements = var->size/item_size; 
 					void* value; 
-					for (int i = 0; i < var->size/item_size; i++) {
+					for (int i = 0; i < 4; i++) {
 						offset = i * item_size; 
-						if (soFar_variables <= 4) {
-							// Calculate remaining variables and print (see assignment formatting)
-							// Convert virtual address to physical address per item in variable
-							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-							memcpy(value, memory + physical_address, item_size);  
-							printf("%i\n",value);   
-						} else {
-							printf("... [%i items]\n", (var->size/item_size)-i);
-							break;
-						}
-						soFar_variables++;
+						physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+						memcpy(value, memory + physical_address, item_size); 
+						printf("%i\n", value); 
 					}
-					// Find the physical address (watch out for page breaks)
-						// Find the start of the virtual address, and the distance to next page break
-						// Find the variable data size
-					// Print the size-chunk of the variable, based on type, until it reaches 4 or runs out
-					// If it reaches 4, calculate remaining variables and print the number (formatted)	
+					if (num_elements >= 4) {
+						printf("... [%i items]\n", num_elements - 4); 
+					}
+					
 				} else {
-					printf("Error: Please select a valid option\n");
+					printf("Error: Invalid argument %s. Please select a valid argument (see 'help' for details).\n", split_command[1].c_str());
 				}
 			}
 		
@@ -152,9 +136,9 @@ int main(int argc, char **argv)
 			int text_size = (uint32_t)atoi(split_command[1].c_str()); 
 			int data_size = (uint32_t)atoi(split_command[2].c_str()); 
 			
-			if ((text_size < 2048) || (text_size > 16384)) {
+			if ((text_size <= 2048) || (text_size >= 16384)) {
 				printf("error: text size out of bounds (2048 to 16384 bytes)\n"); 
-			} else if ((data_size < 0) || (data_size > 1024)) {
+			} else if ((data_size <= 0) || (data_size >= 1024)) {
 				printf("error: data size out of bounds (0 to 1024 bytes)\n"); 
 			} else {
 				createProcess(text_size, data_size, mmu, page_table, page_size); 
@@ -183,8 +167,7 @@ int main(int argc, char **argv)
 			} else if (split_command[3].c_str() == "Double") {
 				type = DataType::Double; 
 			} else {
-				//TODO question: If we print extra errors will that cause problems testing?
-				printf("Error: Data type not recognized please enter a valid data type\n");
+				printf("Error: Data type not recognized. Please enter a valid data type\n");
 			}
 			
 			if (mmu->findPID(pid) == nullptr) {
@@ -192,10 +175,9 @@ int main(int argc, char **argv)
 			} else if (mmu->findVariable(pid, var_name) != nullptr) {
 				printf("error: variable already exists\n"); 
 			} else {
-				// When allocating: Error if allocation would exceed system memory (and skip allocating)
-				allocateVariable(pid, var_name, type, num_elements, mmu, page_table, page_size); 
+				uint32_t address = allocateVariable(pid, var_name, type, num_elements, mmu, page_table, page_size); 
+				if(address != -1) printf("%i\n", address); 
 			}
-			
 			
 		} else if(split_command[0].compare("set") == 0) {
 			// TODO handle command 
@@ -219,9 +201,9 @@ int main(int argc, char **argv)
 			}
 			
 			if (proc == nullptr) {
-				printf("error: process not found"); 
+				printf("error: process not found\n"); 
 			} else if (var == nullptr) {
-				printf("error: variable not found"); 
+				printf("error: variable not found\n"); 
 			} else {
 				for (int i = 0; i < values.size(); i++) {
 					//setVariable(pid, var_name, offset, values[i], mmu, page_table, memory); 
@@ -246,7 +228,6 @@ int main(int argc, char **argv)
 				Free all memory associated with this process
 			*/
 		} else {
-			// TODO "Bad command, try again"
 			printf("error: command not recognized\n"); 
 		}
 		// exit is handled by the while loop. 
@@ -282,25 +263,37 @@ void printStartMessage(int page_size)
 	std::cout << std::endl;
 }
 
+/*
+	Creates a newly running process in the mmu. 
+	
+	@param text_size	The size of the "text" section of memory. 
+	@param data_size 	The size of the "data" section of memory. 
+	@param mmu			A link to the mmu. 
+	@param page_table	A link to the page table. 
+	@param page_size	The size of each page. 
+*/
 void createProcess(int text_size, int data_size, Mmu *mmu, PageTable *page_table, int page_size)
-{	/*
-	Assign a PID - unique number (start at 1024 and increment up)
-	Allocate some amount of startup memory for the process
-		Text/Code: size of binary executable - user specified number (2048 - 16384 bytes)
-		Data/Globals: size of global variables - user specified number (0 - 1024 bytes)
-		Stack: constant (65536 bytes)
-	*/
-	//   - create new process in the MMU
+{
 	uint32_t pid = mmu->createProcess(); 
-	//   - allocate new variables for the <TEXT>, <GLOBALS>, and <STACK> 
 	allocateVariable(pid, "<TEXT>", DataType::Char, text_size, mmu, page_table, page_size); 
 	allocateVariable(pid, "<GLOBALS>", DataType::Char, data_size, mmu, page_table, page_size);
 	allocateVariable(pid, "<STACK>", DataType::Char, 65536, mmu, page_table, page_size);
-	//   - print the pid
 	printf("%i\n", pid);
 }
 
-void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table, int page_size)
+/*
+	Creates and allocates a variable into a section of free space, adding pages as needed. 
+	
+	@param pid			The ID of the process to allocate for. 
+	@param var_name		The name of the variable to create. 
+	@param type			The type of variable being created (e.g. Int). 
+	@param num_elements The number of elements to create in the variable. 
+	@param mmu			A link to the mmu. 
+	@param page_table	A link to the page table. 
+	@param page_size	The size of each page. 
+	@return address	The location the variable was allocated to, or -1 if failed. 
+*/
+uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_t num_elements, Mmu *mmu, PageTable *page_table, int page_size)
 {
 	//	 - determine how much space the variables need
 	int single_var_size; 
@@ -319,7 +312,6 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 	Variable* free_space = nullptr; 
 	uint32_t address; 
 	uint32_t end_of_address; 
-	//   - find first free space within a page already allocated to this process that is large enough to fit the new variable
 	std::vector<Process*> process_list = mmu->getProcesses(); 
 	for (int i = 0; i < process_list.size(); i++) {
 		if (process_list[i]->pid == pid) {
@@ -360,19 +352,30 @@ void allocateVariable(uint32_t pid, std::string var_name, DataType type, uint32_
 				free_space = process->variables[i]; 
 				free_space->name = var_name; 
 				free_space->type = type; 
-				
+				break; 
 			}
 		}
 	}
-	if (!(free_space == nullptr)) {
-		// - print virtual memory address
-		printf("%i\n", address);
-	} else {
+	if (free_space == nullptr) {
 		printf("Error: allocation would exceed system memory\n");
+		return -1; 
+	} else {
+		return address; 
 	}
 	
 }
 
+/*
+	Changes the values of a given element in a given variable. 
+	
+	@param pid			The ID of the process to search for the variable in. 
+	@param var_name		The name of the variable to search for. 
+	@param offset		The location offset of the element. 
+	@param value		The new value to put in the element. 
+	@param mmu			A link to the mmu. 
+	@param page_table	A link to the page table. 
+	@param memory		A link to the simulated system memory. 
+*/
 void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *value, Mmu *mmu, PageTable *page_table, void *memory)
 {
 	// TODO: implement this!
@@ -385,6 +388,14 @@ void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *valu
 	
 }
 
+/*
+	Clears a variable from taking up memory. 
+	
+	@param pid			The ID of the process to search for the variable in. 
+	@param var_name 	The name of the variable to be freed. 
+	@param mmu			A link to the mmu. 
+	@param page_table	A link to the page table. 
+*/
 void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_table)
 {
 	// TODO: implement this!
@@ -395,6 +406,13 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 	//   - free page if this variable was the only one on a given page
 }
 
+/*
+	Terminates a currently running process and frees up memory it was using. 
+	
+	@param pid			The ID of the process to terminate. 
+	@param mmu			A link to the mmu. 
+	@param page_table	A link to the page table. 
+*/
 void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table)
 {
 	// TODO: implement this!
@@ -402,11 +420,12 @@ void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table)
 	//   - free all pages associated with given process
 }
 
-
 /*
-	text: string to split
-	d: character delimiter to split `text` on
-	result: vector of strings - result will be stored here
+	Turns a std::string into a vector<std::string>, splitting it based on the given delimiter. 
+	
+	@param text		The string to split. 
+	@param d 		The character delimiter to split `text` on. 
+	@param result	The vector of strings - result will be stored here. 
 */
 void splitString(std::string text, char d, std::vector<std::string>& result)
 {
