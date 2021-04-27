@@ -1,4 +1,5 @@
 #include "mmu.h"
+#include <math.h>
 
 Mmu::Mmu(int memory_size)
 {
@@ -62,12 +63,22 @@ void Mmu::print()
 		for (j = 0; j < _processes[i]->variables.size(); j++)
 		{
 			Variable* var = _processes[i]->variables[j]; 
-<<<<<<< Updated upstream
-			if (var->type != DataType::FreeSpace) printf("%6i %15s 0x%14x %5i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
-=======
-			if (var->type != DataType::FreeSpace) printf("%6i %15s %14x %5i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
-			// TODO double check formatting
->>>>>>> Stashed changes
+			if (var->type != DataType::FreeSpace) printf("%6i %15s 0x%012x %5i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
+		}
+	}
+}
+
+//pid, page
+//loop over all variables that aren't free space see which pages they are on, have a counter to see if return count if count == 1 its to remove
+int Mmu::isOnlyVar(uint32_t pid, int pageNum, int page_size) {
+	int counter = 0;
+	Process* checker = findPID(pid);
+	for (int i = 0; i < checker->variables.size(); i++) {
+		uint32_t virtualAdd = checker->variables[i]->virtual_address;
+		uint32_t numBits = (uint32_t)log2(page_size);//num bits for page offset
+    	int currentPageNum = (int)(virtualAdd >> numBits);
+		if (currentPageNum == pageNum && checker->variables[i]->type != DataType::FreeSpace){
+			counter++;
 		}
 	}
 }

@@ -59,6 +59,10 @@ void PageTable::addEntry(uint32_t pid, int page_number)
 	_table[entry] = frame;
 }
 
+int PageTable::getPageSize() {
+	return _page_size;
+}
+
 int PageTable::getPhysicalAddress(uint32_t pid, uint32_t virtual_address)
 {   
     //using bitshifting
@@ -85,6 +89,25 @@ bool PageTable::entryExists(int32_t pid, int page_number) {
 	return true;
 }
 
+void PageTable::deletePage(int32_t pid,uint32_t virtual_address) {
+	uint32_t numBits = (uint32_t)log2(_page_size);//num bits for page offset
+    int pageNum = (int)(virtual_address >> numBits);
+	std::string key = pid + "|" + pageNum; 
+	_table.erase(key); 
+}
+
+void PageTable::deleteProcessPages(int32_t pid) {
+	std::vector<std::string> keys = sortedKeys();
+	for (int i = 0; i < keys.size(); i++) {
+		std::vector<std::string> keyParts; 
+		splitStringPagetable(keys[i], '|', keyParts); 
+		if (atoi(keyParts[0].c_str()) == pid) {
+			_table.erase(keys[i]); 
+		}
+	}
+
+}
+
 void PageTable::print()
 {
 	int i;
@@ -96,15 +119,12 @@ void PageTable::print()
 	std::vector<std::string> splitkey; 
 	int pid; 
 	int pagenum; 
-    std::map<std::string,int>::iterator iter;
-    iter = _table.begin();
 	for (i = 0; i < keys.size(); i++)
 	{
-		splitStringPagetable(iter->first, '|', splitkey);
+		splitStringPagetable(keys[i], '|', splitkey);
 		pid = atoi(splitkey[0].c_str());
 		pagenum = atoi(splitkey[1].c_str());
-		printf("%6i|%13i|%14i\n", pid, pagenum, iter->second);
-        iter++;
+		printf("%6i|%13i|%14i\n", pid, pagenum, _table[keys[i]]);
 	}
 }
 

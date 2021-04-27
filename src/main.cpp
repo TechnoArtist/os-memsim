@@ -321,6 +321,12 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 	for (int i = 0; i < process->variables.size(); i++) {
 		if (process->variables[i]->type == DataType::FreeSpace) {
 			// TODO check if the space is split across pages, and whether that still fits the variables
+			//nextpage == page virtual address maps to +1
+			//convert next page back to virtual address
+			//subtract virtual address from next page from our converted
+			//take result and mod with data size
+			//add result to our current virtual address
+			//recheck size
 			if (process->variables[i]->size > all_vars_size) {
 				uint32_t address = process->variables[i]->virtual_address; 
 				uint32_t end_of_address = address + all_vars_size - 1; 
@@ -401,14 +407,19 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 	// TODO: implement this!
 	//   - remove entry from MMU
 	Variable* toRemove = mmu->findVariable(pid, var_name);
+	uint32_t virtualAdd = toRemove->virtual_address;
+	uint32_t numBits = (uint32_t)log2(page_table->getPageSize());//num bits for page offset
+    int currentPageNum = (int)(virtualAdd >> numBits);
 	toRemove->type = DataType::FreeSpace;
 	toRemove->name = "<FREE_SPACE>"; 
-	//   - free page if this variable was the only one on a given page
+	//add a loop to increment currentPageNum
+	if (mmu->isOnlyVar(pid,currentPageNum, page_table->getPageSize()) == 1) { 
+		page_table->deletePage(pid, toRemove->virtual_address);
+	}
 }
 
 /*
 	Terminates a currently running process and frees up memory it was using. 
-	
 	@param pid			The ID of the process to terminate. 
 	@param mmu			A link to the mmu. 
 	@param page_table	A link to the page table. 
@@ -417,6 +428,8 @@ void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table)
 {
 	// TODO: implement this!
 	//   - remove process from MMU
+	Process* toRemove = mmu->findPID(pid);
+	page_table->deleteProcessPages(pid);
 	//   - free all pages associated with given process
 }
 
