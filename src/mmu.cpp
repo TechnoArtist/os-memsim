@@ -55,7 +55,6 @@ void Mmu::addVariableToProcess(uint32_t pid, std::string var_name, DataType type
 void Mmu::print()
 {
 	int i, j;
-
 	std::cout << " PID  | Variable Name | Virtual Addr | Size" << std::endl;
 	std::cout << "------+---------------+--------------+------------" << std::endl;
 	for (i = 0; i < _processes.size(); i++)
@@ -63,7 +62,7 @@ void Mmu::print()
 		for (j = 0; j < _processes[i]->variables.size(); j++)
 		{
 			Variable* var = _processes[i]->variables[j]; 
-			if (var->type != DataType::FreeSpace) printf("%4i | %13s |   0x%08x | %10i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
+			if (var->type != DataType::FreeSpace) printf(" %4i | %13s |   0x%08x | %10i\n", _processes[i]->pid, var->name.c_str(), var->virtual_address, var->size);
 			// TODO fix spacing (add bars, 1 space around bars)
 		}
 	}

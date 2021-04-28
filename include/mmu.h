@@ -35,7 +35,7 @@ public:
 	std::vector<Process*> getProcesses(); 
 	Variable* findVariable(uint32_t pid, std::string var_name); 
 	Process* findPID(uint32_t pid); 
-	int Mmu::isOnlyVar(uint32_t pid, int pageNum, int page_size);
+	int isOnlyVar(uint32_t pid, int pageNum, int page_size);
 };
 
 #endif // __MMU_H_

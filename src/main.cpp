@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 		
 		if(split_command[0].compare("print") == 0) {
 			// print <object>
-			if(split_command.size() < 2) {
+			if (split_command.size() < 2) {
 				printf("Error: Missing argument. Please select an option to print ('help' for details).\n"); 
 			} else {
 				std::vector<std::string> special_case; 
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 							break; 
 					}
 					
-					// TODO account for page breaks
+					// TODO question: How to account for page breaks here, in the print? Do we need to? 
 					int num_elements = var->size/item_size; 
 					void* value; 
 					for (int i = 0; i < 4; i++) {
@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 			std::string var_name = split_command[2]; 
 			DataType type; 
 			uint32_t num_elements = (uint32_t)atoi(split_command[4].c_str()); 
-			
+			//TODO question ask about freespace capitalization.
 			if (split_command[3] == "FreeSpace") { 
 				type = DataType::FreeSpace; 
 			} else if (split_command[3] == "short") {
@@ -195,11 +195,9 @@ int main(int argc, char **argv)
 			std::vector<std::string> values; 
 			Process* 	proc	 = mmu->findPID(pid); 
 			Variable* 	var		 = mmu->findVariable(pid, var_name); 
-			
 			for (int i = 0; i < split_command.size() - 4; i++) {
 				values[i] = split_command[i+4]; 
-			}
-			
+			}	
 			if (proc == nullptr) {
 				printf("error: process not found\n"); 
 			} else if (var == nullptr) {
@@ -213,31 +211,33 @@ int main(int argc, char **argv)
 			
 			
 		} else if(split_command[0].compare("free") == 0) {
-			// TODO handle command 
-			/* error checking: 
-			 - if <PID> does not exist, print "error: process not found"
-			 - if <var_name> does not exist, print "error: variable not found"
-			*/
-			/* free <PID> <var_name>
-				Deallocate memory on the heap that is associated with <var_name>
-			*/
+			// free <PID> <var_name>
+			uint32_t pid = atoi(split_command[1].c_str());
+			std::string var_name = split_command[2];
+			if (mmu->findPID(pid) == nullptr) {
+				printf("error: process not found\n");
+			} else if(mmu->findVariable(pid, var_name) == nullptr) {
+				printf("error: variable not found\n");
+			} else {
+				freeVariable(pid, var_name, mmu, page_table);
+			}
 		} else if(split_command[0].compare("terminate") == 0) {
 			// TODO handle command (include input error checking)
 			/* terminate <PID>
 				Kill the specified process
 				Free all memory associated with this process
 			*/
+			uint32_t pid = atoi(split_command[1].c_str());
+			terminateProcess(pid, mmu, page_table);
 		} else {
 			printf("error: command not recognized\n"); 
 		}
-		// exit is handled by the while loop. 
-
+		// exit is handled by the while loop.
 		// Get next command
 		std::cout << "> ";
 		std::getline (std::cin, command);
 		splitString(command, ' ', split_command);
 	}
-
 	// Clean up
 	free(memory);
 	delete mmu;
@@ -319,31 +319,33 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		}
 	}
 	for (int i = 0; i < process->variables.size(); i++) {
+
 		if (process->variables[i]->type == DataType::FreeSpace) {
 			free_space = process->variables[i]; 
 			
-			uint32_t address = process->variables[i]->virtual_address; 
-			uint32_t first_page = address >> (uint32_t)log2(page_size); 
 			// TODO check if the space is split across pages, and whether that still fits the variables
-			//nextpage == page virtual address maps to +1
+			uint32_t address = process->variables[i]->virtual_address; 
+			uint32_t first_page = address >> (uint32_t)log2(page_size);
+			//nextpage == page virtual address maps to + 1
+			uint32_t next_page = first_page + 1;  
 			//convert next page back to virtual address
-			uint32_t next_page = first_page + 1; 
 			uint32_t next_page_address = next_page << (uint32_t)log2(page_size); 
 			//subtract virtual address from next page from our converted
-			uint32_t tempA = next_page_address - address; 
+			uint32_t pageOverlapTestResultAddressStage = next_page_address - address; 
 			
 			//take result and mod with data size
-			uint32_t tempB = tempA % single_var_size; 
+			uint32_t pageOverlapTestResult = pageOverlapTestResultAddressStage % single_var_size; 
 			//add result to our current virtual address
-			uint32_t offset_address = address + tempB; 
+			uint32_t offset_address = address + pageOverlapTestResult; 
 			
 			uint32_t end_of_address = address + all_vars_size - 1; 
 			uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
 			
 			//recheck size
 			uint32_t offset_size = end_of_address - offset_address; 
+			//TODO quesion: how does this set up look? walk through process and check we are computing/checking proper sizes.
 			
-			if (offset_size > all_vars_size) {
+			if (process->variables[i]->size > all_vars_size) {
 				free_space->size -= all_vars_size; 
 				free_space->virtual_address += all_vars_size; 
 				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, offset_address); 
@@ -357,9 +359,7 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 				}
 				break; 
 			} else if (process->variables[i]->size == all_vars_size) {
-				// TODO This is exactly the right size space, replace it
-				free_space->name = var_name; 
-				free_space->type = type; 
+				// This is exactly the right size space, replace it. 
 				for (int j = first_page; j <= last_page; j++) {
 					// Note: "entry" refers to a page with a specific pid. 
 					if(!page_table->entryExists(pid, j)) {
