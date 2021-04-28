@@ -76,7 +76,7 @@ int main(int argc, char **argv)
 		
 		if(split_command[0].compare("print") == 0) {
 			// print <object>
-			if(split_command.size() < 2) {
+			if (split_command.size() < 2) {
 				printf("Error: Missing argument. Please select an option to print ('help' for details).\n"); 
 			} else {
 				std::vector<std::string> special_case; 
@@ -151,20 +151,20 @@ int main(int argc, char **argv)
 			std::string var_name = split_command[2]; 
 			DataType type; 
 			uint32_t num_elements = (uint32_t)atoi(split_command[4].c_str()); 
-			
-			if (split_command[3].c_str() == "FreeSpace") { 
+			//TODO question ask about freespace capitalization.
+			if (split_command[3] == "FreeSpace") { 
 				type = DataType::FreeSpace; 
-			} else if (split_command[3].c_str() == "Short") {
+			} else if (split_command[3] == "short") {
 				type = DataType::Short; 
-			} else if (split_command[3].c_str() == "Char") {
+			} else if (split_command[3] == "char") {
 				type = DataType::Char; 
-			} else if (split_command[3].c_str() == "Int") {
+			} else if (split_command[3] == "int") {
 				type = DataType::Int; 
-			} else if (split_command[3].c_str() == "Float") {
+			} else if (split_command[3] == "float") {
 				type = DataType::Float; 
-			} else if (split_command[3].c_str() == "Long") {
+			} else if (split_command[3] == "long") {
 				type = DataType::Long; 
-			} else if (split_command[3].c_str() == "Double") {
+			} else if (split_command[3] == "double") {
 				type = DataType::Double; 
 			} else {
 				printf("Error: Data type not recognized. Please enter a valid data type\n");
@@ -195,11 +195,9 @@ int main(int argc, char **argv)
 			std::vector<std::string> values; 
 			Process* 	proc	 = mmu->findPID(pid); 
 			Variable* 	var		 = mmu->findVariable(pid, var_name); 
-			
 			for (int i = 0; i < split_command.size() - 4; i++) {
 				values[i] = split_command[i+4]; 
-			}
-			
+			}	
 			if (proc == nullptr) {
 				printf("error: process not found\n"); 
 			} else if (var == nullptr) {
@@ -213,31 +211,33 @@ int main(int argc, char **argv)
 			
 			
 		} else if(split_command[0].compare("free") == 0) {
-			// TODO handle command 
-			/* error checking: 
-			 - if <PID> does not exist, print "error: process not found"
-			 - if <var_name> does not exist, print "error: variable not found"
-			*/
-			/* free <PID> <var_name>
-				Deallocate memory on the heap that is associated with <var_name>
-			*/
+			// free <PID> <var_name>
+			uint32_t pid = atoi(split_command[1].c_str());
+			std::string var_name = split_command[2];
+			if (mmu->findPID(pid) == nullptr) {
+				printf("error: process not found\n");
+			} else if(mmu->findVariable(pid, var_name) == nullptr) {
+				printf("error: variable not found\n");
+			} else {
+				freeVariable(pid, var_name, mmu, page_table);
+			}
 		} else if(split_command[0].compare("terminate") == 0) {
 			// TODO handle command (include input error checking)
 			/* terminate <PID>
 				Kill the specified process
 				Free all memory associated with this process
 			*/
+			uint32_t pid = atoi(split_command[1].c_str());
+			terminateProcess(pid, mmu, page_table);
 		} else {
 			printf("error: command not recognized\n"); 
 		}
-		// exit is handled by the while loop. 
-
+		// exit is handled by the while loop.
 		// Get next command
 		std::cout << "> ";
 		std::getline (std::cin, command);
 		splitString(command, ' ', split_command);
 	}
-
 	// Clean up
 	free(memory);
 	delete mmu;
@@ -319,23 +319,31 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		}
 	}
 	for (int i = 0; i < process->variables.size(); i++) {
+
 		if (process->variables[i]->type == DataType::FreeSpace) {
 			// TODO check if the space is split across pages, and whether that still fits the variables
-			//nextpage == page virtual address maps to +1
+			uint32_t address = process->variables[i]->virtual_address; 
+			uint32_t first_page = address >> (uint32_t)log2(page_size);
+			//nextpage == page virtual address maps to + 1
+			uint32_t next_page = first_page + 1;  
 			//convert next page back to virtual address
+			uint32_t nextPageAddress = next_page << (uint32_t)log2(page_size); 
 			//subtract virtual address from next page from our converted
+			uint32_t pageOverlapTestResultAddressStage = nextPageAddress - address;
 			//take result and mod with data size
+			uint32_t pageOverlapTestResult = pageOverlapTestResultAddressStage % single_var_size;
 			//add result to our current virtual address
+			uint32_t offset_address = pageOverlapTestResult + address;
+			uint32_t end_of_address = offset_address + all_vars_size - 1; 
+			uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
 			//recheck size
+			uint32_t offset_size = end_of_address - offset_address; 
+			//TODO quesion: how does this set up look? walk through process and check we are computing/checking proper sizes.
 			if (process->variables[i]->size > all_vars_size) {
-				uint32_t address = process->variables[i]->virtual_address; 
-				uint32_t end_of_address = address + all_vars_size - 1; 
 				free_space = process->variables[i]; 
 				free_space->size -= all_vars_size; 
 				free_space->virtual_address += all_vars_size; 
-				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, address); 
-				uint32_t first_page = address >> (uint32_t)log2(page_size); 
-				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
+				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, offset_address); 
 				for (int j = first_page; j <= last_page; j++) {
 					// Note: "entry" refers to a page with a specific pid. 
 					if(!page_table->entryExists(pid, j)) {
@@ -344,11 +352,6 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 				}
 				break; 
 			} else if (process->variables[i]->size == all_vars_size) {
-				// TODO This is exactly the right size space, replace it
-				uint32_t address = process->variables[i]->virtual_address; 
-				uint32_t end_of_address = address + all_vars_size - 1;
-				uint32_t first_page = address >> (uint32_t)log2(page_size); 
-				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
 				for (int j = first_page; j <= last_page; j++) {
 					// Note: "entry" refers to a page with a specific pid. 
 					if(!page_table->entryExists(pid, j)) {

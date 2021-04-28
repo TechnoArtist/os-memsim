@@ -40,8 +40,8 @@ public:
 	void print();
 	bool entryExists(int32_t pid, int page_number);
 	void deletePage(int32_t pid,uint32_t virtual_address);
-	void PageTable::deleteProcessPages(int32_t pid);
-	int PageTable::getPageSize();
+	void deleteProcessPages(int32_t pid);
+	int getPageSize();
 	
 	std::map<std::string, int> getTable(); 
 };
