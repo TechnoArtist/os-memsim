@@ -15,9 +15,9 @@ main.cpp
 		* This will likely tie together the program
 	~ createProcess() (the "create" command)
 	~ allocateVariable() (the "allocate" command)
-	- setVariable() (the "set" command)
-	- freeVariable() (the "free" command)
-	- terminateProcess() (the exit command)
+	~ setVariable() (the "set" command)
+	~ freeVariable() (the "free" command)
+	~ terminateProcess() (the exit command)
 
 mmu.cpp
 	+ finish the print command 
@@ -152,19 +152,19 @@ int main(int argc, char **argv)
 			DataType type; 
 			uint32_t num_elements = (uint32_t)atoi(split_command[4].c_str()); 
 			
-			if (split_command[3].c_str() == "FreeSpace") { 
+			if (split_command[3] == "FreeSpace") { 
 				type = DataType::FreeSpace; 
-			} else if (split_command[3].c_str() == "Short") {
+			} else if (split_command[3] == "short") {
 				type = DataType::Short; 
-			} else if (split_command[3].c_str() == "Char") {
+			} else if (split_command[3] == "char") {
 				type = DataType::Char; 
-			} else if (split_command[3].c_str() == "Int") {
+			} else if (split_command[3] == "int") {
 				type = DataType::Int; 
-			} else if (split_command[3].c_str() == "Float") {
+			} else if (split_command[3] == "float") {
 				type = DataType::Float; 
-			} else if (split_command[3].c_str() == "Long") {
+			} else if (split_command[3] == "long") {
 				type = DataType::Long; 
-			} else if (split_command[3].c_str() == "Double") {
+			} else if (split_command[3] == "double") {
 				type = DataType::Double; 
 			} else {
 				printf("Error: Data type not recognized. Please enter a valid data type\n");
@@ -320,21 +320,34 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 	}
 	for (int i = 0; i < process->variables.size(); i++) {
 		if (process->variables[i]->type == DataType::FreeSpace) {
+			free_space = process->variables[i]; 
+			
+			uint32_t address = process->variables[i]->virtual_address; 
+			uint32_t first_page = address >> (uint32_t)log2(page_size); 
 			// TODO check if the space is split across pages, and whether that still fits the variables
 			//nextpage == page virtual address maps to +1
 			//convert next page back to virtual address
+			uint32_t next_page = first_page + 1; 
+			uint32_t next_page_address = next_page << (uint32_t)log2(page_size); 
 			//subtract virtual address from next page from our converted
+			uint32_t tempA = next_page_address - address; 
+			
 			//take result and mod with data size
+			uint32_t tempB = tempA % single_var_size; 
 			//add result to our current virtual address
+			uint32_t offset_address = address + tempB; 
+			
+			uint32_t end_of_address = address + all_vars_size - 1; 
+			uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
+			
 			//recheck size
-			if (process->variables[i]->size > all_vars_size) {
-				uint32_t address = process->variables[i]->virtual_address; 
-				uint32_t end_of_address = address + all_vars_size - 1; 
-				free_space = process->variables[i]; 
+			uint32_t offset_size = end_of_address - offset_address; 
+			
+			if (offset_size > all_vars_size) {
 				free_space->size -= all_vars_size; 
 				free_space->virtual_address += all_vars_size; 
-				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, address); 
-				uint32_t first_page = address >> (uint32_t)log2(page_size); 
+				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, offset_address); 
+				uint32_t first_page = offset_address >> (uint32_t)log2(page_size); 
 				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
 				for (int j = first_page; j <= last_page; j++) {
 					// Note: "entry" refers to a page with a specific pid. 
@@ -345,19 +358,14 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 				break; 
 			} else if (process->variables[i]->size == all_vars_size) {
 				// TODO This is exactly the right size space, replace it
-				uint32_t address = process->variables[i]->virtual_address; 
-				uint32_t end_of_address = address + all_vars_size - 1;
-				uint32_t first_page = address >> (uint32_t)log2(page_size); 
-				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
+				free_space->name = var_name; 
+				free_space->type = type; 
 				for (int j = first_page; j <= last_page; j++) {
 					// Note: "entry" refers to a page with a specific pid. 
 					if(!page_table->entryExists(pid, j)) {
 						page_table->addEntry(pid, j);  
 					} 
 				}
-				free_space = process->variables[i]; 
-				free_space->name = var_name; 
-				free_space->type = type; 
 				break; 
 			}
 		}
@@ -426,6 +434,10 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 */
 void terminateProcess(uint32_t pid, Mmu *mmu, PageTable *page_table)
 {
+	Process* proc = mmu->findPID(pid); 
+	for (int i = 0; i < proc->variables.size(); i++) {
+		freeVariable(pid, proc->variables[i]->name, mmu, page_table); 
+	}
 	// TODO: implement this!
 	//   - remove process from MMU
 	Process* toRemove = mmu->findPID(pid);
