@@ -53,19 +53,15 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Error: you must specify the page size\n");
 		return 1;
 	}
-
 	// Print opening instuction message
 	int page_size = std::stoi(argv[1]);
 	printStartMessage(page_size);
-
 	// Create physical 'memory'
 	uint32_t mem_size = 67108864;
 	void *memory = malloc(mem_size); // 64 MB (64 * 1024 * 1024)
-
 	// Create MMU and Page Table
 	Mmu *mmu = new Mmu(mem_size);
 	PageTable *page_table = new PageTable(page_size);
-
 	// Prompt loop
 	std::string command;
 	std::cout << "> ";
@@ -112,7 +108,6 @@ int main(int argc, char **argv)
 							item_size = 8; 
 							break; 
 					}
-					
 					// TODO question: How to account for page breaks here, in the print? Do we need to? 
 					int num_elements = var->size/item_size; 
 					void* value; 
@@ -124,27 +119,22 @@ int main(int argc, char **argv)
 					}
 					if (num_elements >= 4) {
 						printf("... [%i items]\n", num_elements - 4); 
-					}
-					
+					}	
 				} else {
 					printf("Error: Invalid argument %s. Please select a valid argument (see 'help' for details).\n", split_command[1].c_str());
 				}
 			}
-		
 		} else if(split_command[0].compare("create") == 0) {
 			// create <text_size> <data_size>
 			int text_size = (uint32_t)atoi(split_command[1].c_str()); 
 			int data_size = (uint32_t)atoi(split_command[2].c_str()); 
-			
 			if ((text_size <= 2048) || (text_size >= 16384)) {
 				printf("error: text size out of bounds (2048 to 16384 bytes)\n"); 
 			} else if ((data_size <= 0) || (data_size >= 1024)) {
 				printf("error: data size out of bounds (0 to 1024 bytes)\n"); 
 			} else {
 				createProcess(text_size, data_size, mmu, page_table, page_size); 
-			}
-			
-			
+			}	
 		} else if(split_command[0].compare("allocate") == 0) {
 			// allocate <PID> <var_name> <data_type> <number_of_elements>
 			uint32_t pid = (uint32_t)atoi(split_command[1].c_str()); 
@@ -181,10 +171,6 @@ int main(int argc, char **argv)
 			
 		} else if(split_command[0].compare("set") == 0) {
 			// TODO handle command 
-			/* error checking: 
-			 - if <PID> does not exist, print "error: process not found"
-			 - if <var_name> does not exist, print "error: variable not found"
-			*/
 			/* set <PID> <var_name> <offset> <value_0> <value_1> <value_2> ... <value_N>
 				Set the value for variable <var_name> starting at <offset>
 				Note: multiple contiguous values can be set with one command
@@ -205,11 +191,9 @@ int main(int argc, char **argv)
 			} else {
 				for (int i = 0; i < values.size(); i++) {
 					//setVariable(pid, var_name, offset, values[i], mmu, page_table, memory); 
-					// TODO see "how to interact with void pointers" question
+					// TODO question: see "how to interact with void pointers" question
 				}
-			}
-			
-			
+			}		
 		} else if(split_command[0].compare("free") == 0) {
 			// free <PID> <var_name>
 			uint32_t pid = atoi(split_command[1].c_str());
@@ -319,11 +303,9 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		}
 	}
 	for (int i = 0; i < process->variables.size(); i++) {
-
 		if (process->variables[i]->type == DataType::FreeSpace) {
 			free_space = process->variables[i]; 
-			
-			// TODO check if the space is split across pages, and whether that still fits the variables
+			//check if the space is split across pages, and whether that still fits the variables
 			uint32_t address = process->variables[i]->virtual_address; 
 			uint32_t first_page = address >> (uint32_t)log2(page_size);
 			//nextpage == page virtual address maps to + 1
@@ -331,20 +313,16 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 			//convert next page back to virtual address
 			uint32_t next_page_address = next_page << (uint32_t)log2(page_size); 
 			//subtract virtual address from next page from our converted
-			uint32_t pageOverlapTestResultAddressStage = next_page_address - address; 
-			
+			uint32_t pageOverlapTestResultAddressStage = next_page_address - address; 	
 			//take result and mod with data size
 			uint32_t pageOverlapTestResult = pageOverlapTestResultAddressStage % single_var_size; 
 			//add result to our current virtual address
 			uint32_t offset_address = address + pageOverlapTestResult; 
-			
 			uint32_t end_of_address = address + all_vars_size - 1; 
 			uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
-			
 			//recheck size
 			uint32_t offset_size = end_of_address - offset_address; 
 			//TODO quesion: how does this set up look? walk through process and check we are computing/checking proper sizes.
-			
 			if (process->variables[i]->size > all_vars_size) {
 				free_space->size -= all_vars_size; 
 				free_space->virtual_address += all_vars_size; 
@@ -375,8 +353,7 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		return -1; 
 	} else {
 		return address; 
-	}
-	
+	}	
 }
 
 /*
@@ -416,15 +393,42 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 	//   - remove entry from MMU
 	Variable* toRemove = mmu->findVariable(pid, var_name);
 	uint32_t virtualAdd = toRemove->virtual_address;
+	uint32_t endAdd = virtualAdd + toRemove->size; 
 	uint32_t numBits = (uint32_t)log2(page_table->getPageSize());//num bits for page offset
     int currentPageNum = (int)(virtualAdd >> numBits);
+	int endingPageNum = (int)(endAdd >> numBits); 
 	toRemove->type = DataType::FreeSpace;
-	toRemove->name = "<FREE_SPACE>"; 
-	//add a loop to increment currentPageNum
-	if (mmu->isOnlyVar(pid,currentPageNum, page_table->getPageSize()) == 1) { 
-		page_table->deletePage(pid, toRemove->virtual_address);
-	}
+	toRemove->name = "<FREE_SPACE>";
+	//TODO question: Are we doing this properly?
+	for (int i = currentPageNum; i < endingPageNum; i++) {
+		if (mmu->isOnlyVar(pid,currentPageNum, page_table->getPageSize()) == 1) { 
+			page_table->deletePage(pid, toRemove->virtual_address);
+		}
+	} 
+	for (int i = 0; i < mmu->getProcesses().size(); i++) {
+		if (mmu->getProcesses()[i]->pid == pid) {
+			Process* proc = mmu->getProcesses()[i]; 
+			Variable* var; 
+			for (int j = 0; j < proc->variables.size(); j++) {
+				var = proc->variables[j]; 
+				if (var->name == var_name) {
+					//TODO question: DO we need to update just the sizes or the virtual address?
+					//If freespace comes before variable merge
+					if (j > 1 && proc->variables[j-1]->type == DataType::FreeSpace) {
+						proc->variables[j-1]->size = proc->variables[j-1]->size + var->size;
+					}
+					//If freespace comes after our variable merge
+					if (j+1 < mmu->getProcesses().size() && proc->variables[j+1]->type == DataType::FreeSpace) {
+						var->size = var->size + proc->variables[j+1]->size;
+					}
+				}//if
+			}//for
+			break; 
+		}//if
+	}//for
+
 }
+
 
 /*
 	Terminates a currently running process and frees up memory it was using. 
@@ -507,4 +511,3 @@ void splitString(std::string text, char d, std::vector<std::string>& result)
 		result.push_back(token);
 	}
 } // splitString()
-
