@@ -106,27 +106,43 @@ int main(int argc, char **argv)
 					}
 					int num_elements = var->size/item_size; 
 					void* value; 
-					if(var->type == DataType::Int || var->type == DataType::Short || var->type == DataType::Long) {
+					if(var->type == DataType::Int || var->type == DataType::Short) {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
 							memcpy(value, (memory+physical_address), item_size);
-							int tester = *((int *) value);  
+							int32_t tester = *((int32_t *) value);  
 							printf("%i, ", tester); 
 						}	
-					} else if (var->type == DataType::Float || var->type == DataType::Double) {
+					} else if(var->type == DataType::Long) {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-							memcpy(value, memory + physical_address, item_size); 
-							double tester = *((double *) value);  
+							memcpy(value, (memory+physical_address), item_size);
+							uint64_t tester = *((uint64_t *)value);  
+							printf("%ld, ", tester); 
+						}	
+					}  else if (var->type == DataType::Float) {
+						for (int i = 0; i < 4 && i < num_elements; i++) {
+							offset = i * item_size; 
+							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+							memcpy(value, (memory + physical_address), item_size);
+							float tester = *((float *)value);  
 							printf("%f, ", tester); 
+						}
+					} else if (var->type == DataType::Double) {
+						for (int i = 0; i < 4 && i < num_elements; i++) {
+							offset = i * item_size; 
+							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+							memcpy(value, (memory + physical_address), item_size);
+							double tester = *((double *)value);  
+							printf("%lf, ", tester); 
 						}
 					} else {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-							memcpy(value, memory + physical_address, item_size); 
+							memcpy(value, (memory + physical_address), item_size); 
 							char tester = *((char *) value);  
 							printf("%c, ", tester); 
 						}
@@ -136,9 +152,7 @@ int main(int argc, char **argv)
 					} else {
 						printf("\n");
 					}
-				} /*else {
-					printf("Error: Invalid argument %s. Please select a valid argument (see 'help' for details).\n", split_command[1].c_str());
-				}*/
+				} 
 			}
 		} else if(split_command[0].compare("create") == 0) {
 			// create <text_size> <data_size>
@@ -204,6 +218,7 @@ int main(int argc, char **argv)
 			} else if (var == nullptr) {
 				printf("error: variable not found\n"); 
 			} else {
+				int count = 0;
 				for (int i = 0; i < values.size(); i++) {
 					void *set_value;
 					int32_t tempInt;
@@ -215,24 +230,43 @@ int main(int argc, char **argv)
 					if (var->type == DataType::Int) {
 						tempInt = std::stoi(values[i]);
 						set_value = &tempInt;
+						if(count != 0) {
+							offset += 4;
+						}
 					} else if (var->type == DataType::Long) {
 						//TODO double check if it is stoll
-						long tempLong = std::stol(values[i]);
-						set_value = &tempInt;
+						tempLong = std::stoll(values[i]);
+						set_value = &tempLong;
+						if(count != 0) {
+							offset += 8;
+						}
 					} else if (var->type == DataType::Short) {
 						tempShort = (short)std::stoi(values[i]);
 						set_value = &tempShort;
+						if(count != 0) {
+							offset += 2;
+						}
 					} else if(var->type == DataType::Double) {
-						double tempDouble = std::stod(values[i]);
+						tempDouble = std::stod(values[i]);
 						set_value = &tempDouble;
+						if(count != 0) {
+							offset += 8;
+						}
 					} else if(var->type == DataType::Char) {
 						tempChar= values[i][0];
 						set_value = &tempChar;
+						if(count != 0) {
+							offset += 1;
+						}
 					} else if(var->type == DataType::Float) {
 						tempFloat= std::stof(values[i]);
 						set_value = &tempFloat;
+						if(count != 0) {
+							offset += 4;
+						}
 					}
 					setVariable(pid, var_name, offset, set_value, mmu, page_table, memory); 
+					count ++;
 				}
 			}		
 		} else if(split_command[0].compare("free") == 0) {
@@ -331,13 +365,13 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		single_var_size = 4; 
 	} else if (type == DataType::Long || type == DataType::Double) {
 		single_var_size = 8; 
-	}
-	printf("single var size %i\n", single_var_size); 
+	} 
 	all_vars_size = num_elements * single_var_size; 
-	if (all_vars_size > 67108864) {
+	if (all_vars_size > mmu->getRemainingMemory()) {
 		printf("Error: allocation would exceed system memory\n");
 		return -1;
 	} else {
+		mmu->setRemainingMemory(all_vars_size);
 		Process* process; 
 		Variable* free_space = nullptr; 
 		uint32_t address; 
@@ -465,7 +499,6 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 			for (int j = 0; j < proc->variables.size(); j++) {
 				var = proc->variables[j]; 
 				if (var->name == var_name) {
-					
 					//If freespace comes before variable merge
 					if (j > 1 && proc->variables[j-1]->type == DataType::FreeSpace) {
 						proc->variables[j-1]->size = proc->variables[j-1]->size + var->size;

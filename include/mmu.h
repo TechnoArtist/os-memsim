@@ -24,6 +24,7 @@ private:
 	uint32_t _next_pid;
 	uint32_t _max_size;
 	std::vector<Process*> _processes;
+	uint32_t _remainingMemory;
 
 public:
 	Mmu(int memory_size);
@@ -36,6 +37,8 @@ public:
 	Variable* findVariable(uint32_t pid, std::string var_name); 
 	Process* findPID(uint32_t pid); 
 	int isOnlyVar(uint32_t pid, int pageNum, int page_size);
+	uint32_t getRemainingMemory();
+	void setRemainingMemory(uint32_t all_vars_size);
 };
 
 #endif // __MMU_H_

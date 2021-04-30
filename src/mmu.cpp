@@ -5,6 +5,7 @@ Mmu::Mmu(int memory_size)
 {
 	_next_pid = 1024;
 	_max_size = memory_size;
+	_remainingMemory = memory_size;
 }
 
 Mmu::~Mmu()
@@ -78,6 +79,15 @@ int Mmu::isOnlyVar(uint32_t pid, int pageNum, int page_size) {
 			counter++;
 		}
 	}
+	return counter;
+}
+
+uint32_t Mmu::getRemainingMemory(){
+	return _remainingMemory;
+}
+
+void Mmu::setRemainingMemory(uint32_t all_vars_size) {
+	_remainingMemory = _remainingMemory - all_vars_size;
 }
 
 std::vector<Process*> Mmu::getProcesses() {
