@@ -110,34 +110,32 @@ int main(int argc, char **argv)
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-							memcpy((char*)value, (memory+physical_address), item_size);  
-							printf("%i\n", value); 
-						}
-						if (num_elements >= 4) {
-							printf("... [%i items]\n", num_elements - 4); 
+							memcpy(value, (memory+physical_address), item_size);
+							int tester = *((int *) value);  
+							printf("%i, ", tester); 
 						}	
 					} else if (var->type == DataType::Float || var->type == DataType::Double) {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
 							memcpy(value, memory + physical_address, item_size); 
-							printf("%f\n", &value); 
+							double tester = *((double *) value);  
+							printf("%f, ", tester); 
 						}
-						if (num_elements >= 4) {
-							printf("... [%i items]\n", num_elements - 4); 
-						}	
 					} else {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
 							memcpy(value, memory + physical_address, item_size); 
-							printf("%s\n", &value); 
+							char tester = *((char *) value);  
+							printf("%c, ", tester); 
 						}
-						if (num_elements >= 4) {
-							printf("... [%i items]\n", num_elements - 4); 
-						}
+					} 
+					if (num_elements >= 4) {
+						printf("... [%i items]\n", num_elements); 
+					} else {
+						printf("\n");
 					}
-
 				} /*else {
 					printf("Error: Invalid argument %s. Please select a valid argument (see 'help' for details).\n", split_command[1].c_str());
 				}*/
@@ -218,7 +216,7 @@ int main(int argc, char **argv)
 						tempInt = std::stoi(values[i]);
 						set_value = &tempInt;
 					} else if (var->type == DataType::Long) {
-						//double check if it is stoll
+						//TODO double check if it is stoll
 						long tempLong = std::stol(values[i]);
 						set_value = &tempInt;
 					} else if (var->type == DataType::Short) {
@@ -324,7 +322,7 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 {
 	//	 - determine how much space the variables need
 	int single_var_size; 
-	int all_vars_size; 
+	uint32_t all_vars_size; 
 	if (type == DataType::Char) {
 		single_var_size = 1; 
 	} else if (type == DataType::Short) {
@@ -333,83 +331,84 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		single_var_size = 4; 
 	} else if (type == DataType::Long || type == DataType::Double) {
 		single_var_size = 8; 
-	} 
+	}
+	printf("single var size %i\n", single_var_size); 
 	all_vars_size = num_elements * single_var_size; 
-	Process* process; 
-	Variable* free_space = nullptr; 
-	uint32_t address; 
-	uint32_t end_of_address; 
-	uint32_t offset_address;
-	uint32_t last_page;
-	std::vector<Process*> process_list = mmu->getProcesses(); 
-	for (int i = 0; i < process_list.size(); i++) {
-		if (process_list[i]->pid == pid) {
-			process = process_list[i]; 
-		}
-	}
-	for (int i = 0; i < process->variables.size(); i++) {
-		if (process->variables[i]->type == DataType::FreeSpace) {
-			free_space = process->variables[i]; 
-			//check if the space is split across pages, and whether that still fits the variables
-			address = process->variables[i]->virtual_address; 
-			uint32_t first_page = address >> (uint32_t)log2(page_size);
-			//nextpage == page virtual address maps to + 1
-			uint32_t next_page = first_page + 1;  
-			//convert next page back to virtual address
-			uint32_t next_page_address = next_page << (uint32_t)log2(page_size); 
-			//subtract virtual address from next page from our converted
-			uint32_t pageOverlapTestResultAddressStage = next_page_address - address; 	
-			//take result and mod with data size
-			uint32_t pageOverlapTestResult = pageOverlapTestResultAddressStage % single_var_size; 
-			//add result to our current virtual address
-			if ((next_page_address - address) > single_var_size) {
-				offset_address = address;
-				end_of_address = address + all_vars_size - 1; 
-				last_page = end_of_address >> (uint32_t)log2(page_size);
-			} else {
-				offset_address = address + pageOverlapTestResult; 
-				end_of_address = address + all_vars_size - 1; 
-				last_page = end_of_address >> (uint32_t)log2(page_size);
-			}
-			//recheck size
-			uint32_t offset_size = end_of_address - offset_address;
-			if (process->variables[i]->size > all_vars_size) {
-				free_space->size -= all_vars_size; 
-				free_space->virtual_address += all_vars_size; 
-				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, offset_address); 
-				address = offset_address;
-				uint32_t first_page = offset_address >> (uint32_t)log2(page_size); 
-				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
-				for (int j = first_page; j <= last_page; j++) {
-					// Note: "entry" refers to a page with a specific pid. 
-					if(!page_table->entryExists(pid, j)) {
-						page_table->addEntry(pid, j);  
-					} 
-				}
-				break; 
-			} else if (process->variables[i]->size == all_vars_size) {
-				// This is exactly the right size space, replace it. 
-				process->variables[i]->name = var_name;
-				process->variables[i]->type = type;
-				process->variables[i]->size = all_vars_size;
-				process->variables[i]->virtual_address += all_vars_size;
-				address = offset_address;
-				for (int j = first_page; j <= last_page; j++) {
-					// Note: "entry" refers to a page with a specific pid. 
-					if(!page_table->entryExists(pid, j)) {
-						page_table->addEntry(pid, j);  
-					} 
-				}
-				break; 
-			}
-		}
-	}
-	if (free_space == nullptr) {
+	if (all_vars_size > 67108864) {
 		printf("Error: allocation would exceed system memory\n");
-		return -1; 
+		return -1;
 	} else {
-		return address; 
-	}	
+		Process* process; 
+		Variable* free_space = nullptr; 
+		uint32_t address; 
+		uint32_t end_of_address; 
+		uint32_t offset_address;
+		uint32_t last_page;
+		std::vector<Process*> process_list = mmu->getProcesses(); 
+		for (int i = 0; i < process_list.size(); i++) {
+			if (process_list[i]->pid == pid) {
+				process = process_list[i]; 
+			}
+		}
+		for (int i = 0; i < process->variables.size(); i++) {
+			if (process->variables[i]->type == DataType::FreeSpace) {
+				free_space = process->variables[i]; 
+				//check if the space is split across pages, and whether that still fits the variables
+				address = process->variables[i]->virtual_address; 
+				uint32_t first_page = address >> (uint32_t)log2(page_size);
+				//nextpage == page virtual address maps to + 1
+				uint32_t next_page = first_page + 1;  
+				//convert next page back to virtual address
+				uint32_t next_page_address = next_page << (uint32_t)log2(page_size); 
+				//subtract virtual address from next page from our converted
+				uint32_t pageOverlapTestResultAddressStage = next_page_address - address; 	
+				//take result and mod with data size
+				uint32_t pageOverlapTestResult = pageOverlapTestResultAddressStage % single_var_size; 
+				//add result to our current virtual address
+				if ((next_page_address - address) > single_var_size) {
+					offset_address = address;
+					end_of_address = address + all_vars_size - 1; 
+					last_page = end_of_address >> (uint32_t)log2(page_size);
+				} else {
+					offset_address = address + pageOverlapTestResult; 
+					end_of_address = address + all_vars_size - 1; 
+					last_page = end_of_address >> (uint32_t)log2(page_size);
+				}
+				//recheck size
+				uint32_t offset_size = end_of_address - offset_address;
+				if (process->variables[i]->size > all_vars_size) {
+					free_space->size -= all_vars_size; 
+					free_space->virtual_address += all_vars_size; 
+					mmu->addVariableToProcess(pid, var_name, type, all_vars_size, offset_address); 
+					address = offset_address;
+					uint32_t first_page = offset_address >> (uint32_t)log2(page_size); 
+					uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
+					for (int j = first_page; j <= last_page; j++) {
+						// Note: "entry" refers to a page with a specific pid. 
+						if(!page_table->entryExists(pid, j)) {
+							page_table->addEntry(pid, j);  
+						} 
+					}
+					break; 
+				} else if (process->variables[i]->size == all_vars_size) {
+					// This is exactly the right size space, replace it. 
+					process->variables[i]->name = var_name;
+					process->variables[i]->type = type;
+					process->variables[i]->size = all_vars_size;
+					process->variables[i]->virtual_address += all_vars_size;
+					address = offset_address;
+					for (int j = first_page; j <= last_page; j++) {
+						// Note: "entry" refers to a page with a specific pid. 
+						if(!page_table->entryExists(pid, j)) {
+							page_table->addEntry(pid, j);  
+						} 
+					}
+					break; 
+				}
+			}
+		}
+		return address;
+	}
 }
 
 /*
