@@ -70,13 +70,11 @@ int main(int argc, char **argv)
 	splitString(command, ' ', split_command);
 	while (command != "exit") {
 		
-		if(split_command[0].compare("print") == 0) {
+		if (split_command[0].compare("print") == 0) {
 			// print <object>
 			if (split_command.size() < 2) {
 				printf("Error: Missing argument. Please select an option to print ('help' for details).\n"); 
 			} else {
-				std::vector<std::string> special_case; 
-				splitString(split_command[1], ':', special_case);
 				if (split_command[1] == "mmu") {
 					mmu->print();
 				} else if (split_command[1] == "page") {
@@ -86,43 +84,63 @@ int main(int argc, char **argv)
 					for (int i = 0; i < processList.size(); i++) {
 						printf("%i\n", processList[i]->pid);
 					}
-				} else if (special_case.size() > 1) {
-					Variable* var = mmu->findVariable(atoi(special_case[0].c_str()), special_case[1]); 
+				} else {
+					std::vector<std::string> special_case; 
+					splitString(split_command[1], ':', special_case);
+					Variable* var = mmu->findVariable(stoi(special_case[0]), special_case[1]); 
 					int item_size; 
 					int offset; 
 					int physical_address; 
-					
-					switch (var->type) {
-						case DataType::Char: 
-							item_size = 1; 
-							break; 
-						case DataType::Short: 
-							item_size = 2; 
-							break; 
-						case DataType::Int: 
-						case DataType::Float: 
-							item_size = 4; 
-							break; 
-						case DataType::Long: 
-						case DataType::Double: 
-							item_size = 8; 
-							break; 
+					if (var->type == DataType::Char) {
+						item_size = 1; 
+					} else if (var->type == DataType::Short) {
+						item_size = 2; 
+					} else if (var->type == DataType::Int) {
+						item_size = 4;
+					}else if(var->type == DataType::Float) {
+						item_size = 4; 
+					} else if (var->type == DataType::Long) {
+						item_size = 8;
+					} else if(var->type == DataType::Double) {
+						item_size = 8; 
 					}
-					// TODO question: How to account for page breaks here, in the print? Do we need to? 
 					int num_elements = var->size/item_size; 
 					void* value; 
-					for (int i = 0; i < 4; i++) {
-						offset = i * item_size; 
-						physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-						memcpy(value, memory + physical_address, item_size); 
-						printf("%i\n", value); 
+					if(var->type == DataType::Int || var->type == DataType::Short || var->type == DataType::Long) {
+						for (int i = 0; i < 4 && i < num_elements; i++) {
+							offset = i * item_size; 
+							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+							memcpy((char*)value, (memory+physical_address), item_size);  
+							printf("%i\n", value); 
+						}
+						if (num_elements >= 4) {
+							printf("... [%i items]\n", num_elements - 4); 
+						}	
+					} else if (var->type == DataType::Float || var->type == DataType::Double) {
+						for (int i = 0; i < 4 && i < num_elements; i++) {
+							offset = i * item_size; 
+							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+							memcpy(value, memory + physical_address, item_size); 
+							printf("%f\n", &value); 
+						}
+						if (num_elements >= 4) {
+							printf("... [%i items]\n", num_elements - 4); 
+						}	
+					} else {
+						for (int i = 0; i < 4 && i < num_elements; i++) {
+							offset = i * item_size; 
+							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
+							memcpy(value, memory + physical_address, item_size); 
+							printf("%s\n", &value); 
+						}
+						if (num_elements >= 4) {
+							printf("... [%i items]\n", num_elements - 4); 
+						}
 					}
-					if (num_elements >= 4) {
-						printf("... [%i items]\n", num_elements - 4); 
-					}	
-				} else {
+
+				} /*else {
 					printf("Error: Invalid argument %s. Please select a valid argument (see 'help' for details).\n", split_command[1].c_str());
-				}
+				}*/
 			}
 		} else if(split_command[0].compare("create") == 0) {
 			// create <text_size> <data_size>
@@ -141,7 +159,6 @@ int main(int argc, char **argv)
 			std::string var_name = split_command[2]; 
 			DataType type; 
 			uint32_t num_elements = (uint32_t)atoi(split_command[4].c_str()); 
-			//TODO question ask about freespace capitalization.
 			if (split_command[3] == "FreeSpace") { 
 				type = DataType::FreeSpace; 
 			} else if (split_command[3] == "short") {
@@ -175,14 +192,14 @@ int main(int argc, char **argv)
 				Set the value for variable <var_name> starting at <offset>
 				Note: multiple contiguous values can be set with one command
 			*/
-			int 		pid		 = atoi(split_command[1].c_str()); 
+			int pid	= stoi(split_command[1]); 
 			std::string var_name = split_command[2]; 
-			int 		offset	 = atoi(split_command[3].c_str()); 
+			int offset = stoi(split_command[3]); 
 			std::vector<std::string> values; 
-			Process* 	proc	 = mmu->findPID(pid); 
-			Variable* 	var		 = mmu->findVariable(pid, var_name); 
-			for (int i = 0; i < split_command.size() - 4; i++) {
-				values[i] = split_command[i+4]; 
+			Process* proc= mmu->findPID(pid); 
+			Variable* var = mmu->findVariable(pid, var_name);
+			for (int i = 4; i < split_command.size(); i++) {
+				values.push_back(split_command[i]); 
 			}	
 			if (proc == nullptr) {
 				printf("error: process not found\n"); 
@@ -190,8 +207,34 @@ int main(int argc, char **argv)
 				printf("error: variable not found\n"); 
 			} else {
 				for (int i = 0; i < values.size(); i++) {
-					//setVariable(pid, var_name, offset, values[i], mmu, page_table, memory); 
-					// TODO question: see "how to interact with void pointers" question
+					void *set_value;
+					int32_t tempInt;
+					int64_t tempLong;
+					short tempShort;
+					char tempChar;
+					float tempFloat;
+					double tempDouble;
+					if (var->type == DataType::Int) {
+						tempInt = std::stoi(values[i]);
+						set_value = &tempInt;
+					} else if (var->type == DataType::Long) {
+						//double check if it is stoll
+						long tempLong = std::stol(values[i]);
+						set_value = &tempInt;
+					} else if (var->type == DataType::Short) {
+						tempShort = (short)std::stoi(values[i]);
+						set_value = &tempShort;
+					} else if(var->type == DataType::Double) {
+						double tempDouble = std::stod(values[i]);
+						set_value = &tempDouble;
+					} else if(var->type == DataType::Char) {
+						tempChar= values[i][0];
+						set_value = &tempChar;
+					} else if(var->type == DataType::Float) {
+						tempFloat= std::stof(values[i]);
+						set_value = &tempFloat;
+					}
+					setVariable(pid, var_name, offset, set_value, mmu, page_table, memory); 
 				}
 			}		
 		} else if(split_command[0].compare("free") == 0) {
@@ -296,6 +339,8 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 	Variable* free_space = nullptr; 
 	uint32_t address; 
 	uint32_t end_of_address; 
+	uint32_t offset_address;
+	uint32_t last_page;
 	std::vector<Process*> process_list = mmu->getProcesses(); 
 	for (int i = 0; i < process_list.size(); i++) {
 		if (process_list[i]->pid == pid) {
@@ -306,7 +351,7 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 		if (process->variables[i]->type == DataType::FreeSpace) {
 			free_space = process->variables[i]; 
 			//check if the space is split across pages, and whether that still fits the variables
-			uint32_t address = process->variables[i]->virtual_address; 
+			address = process->variables[i]->virtual_address; 
 			uint32_t first_page = address >> (uint32_t)log2(page_size);
 			//nextpage == page virtual address maps to + 1
 			uint32_t next_page = first_page + 1;  
@@ -317,16 +362,22 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 			//take result and mod with data size
 			uint32_t pageOverlapTestResult = pageOverlapTestResultAddressStage % single_var_size; 
 			//add result to our current virtual address
-			uint32_t offset_address = address + pageOverlapTestResult; 
-			uint32_t end_of_address = address + all_vars_size - 1; 
-			uint32_t last_page = end_of_address >> (uint32_t)log2(page_size);
+			if ((next_page_address - address) > single_var_size) {
+				offset_address = address;
+				end_of_address = address + all_vars_size - 1; 
+				last_page = end_of_address >> (uint32_t)log2(page_size);
+			} else {
+				offset_address = address + pageOverlapTestResult; 
+				end_of_address = address + all_vars_size - 1; 
+				last_page = end_of_address >> (uint32_t)log2(page_size);
+			}
 			//recheck size
-			uint32_t offset_size = end_of_address - offset_address; 
-			//TODO quesion: how does this set up look? walk through process and check we are computing/checking proper sizes.
+			uint32_t offset_size = end_of_address - offset_address;
 			if (process->variables[i]->size > all_vars_size) {
 				free_space->size -= all_vars_size; 
 				free_space->virtual_address += all_vars_size; 
 				mmu->addVariableToProcess(pid, var_name, type, all_vars_size, offset_address); 
+				address = offset_address;
 				uint32_t first_page = offset_address >> (uint32_t)log2(page_size); 
 				uint32_t last_page = end_of_address >> (uint32_t)log2(page_size); 
 				for (int j = first_page; j <= last_page; j++) {
@@ -338,6 +389,11 @@ uint32_t allocateVariable(uint32_t pid, std::string var_name, DataType type, uin
 				break; 
 			} else if (process->variables[i]->size == all_vars_size) {
 				// This is exactly the right size space, replace it. 
+				process->variables[i]->name = var_name;
+				process->variables[i]->type = type;
+				process->variables[i]->size = all_vars_size;
+				process->variables[i]->virtual_address += all_vars_size;
+				address = offset_address;
 				for (int j = first_page; j <= last_page; j++) {
 					// Note: "entry" refers to a page with a specific pid. 
 					if(!page_table->entryExists(pid, j)) {
@@ -374,9 +430,8 @@ void setVariable(uint32_t pid, std::string var_name, uint32_t offset, void *valu
 	//   - insert `value` into `memory` at physical address
 	//   * note: this function only handles a single element (i.e. you'll need to call this within a loop when setting
 	//		   multiple elements of an array)	
-	int physical_address = page_table->getPhysicalAddress(pid, mmu->findVariable(pid, var_name)->virtual_address + offset); 
-	memcpy((char*)memory+physical_address,value, mmu->findVariable(pid,var_name)->type); 
-	
+	int physical_address = page_table->getPhysicalAddress(pid, mmu->findVariable(pid, var_name)->virtual_address + offset);
+	memcpy((char*)(memory+physical_address),value, mmu->findVariable(pid,var_name)->type); 
 }
 
 /*
@@ -399,7 +454,6 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 	int endingPageNum = (int)(endAdd >> numBits); 
 	toRemove->type = DataType::FreeSpace;
 	toRemove->name = "<FREE_SPACE>";
-	//TODO question: Are we doing this properly?
 	for (int i = currentPageNum; i < endingPageNum; i++) {
 		if (mmu->isOnlyVar(pid,currentPageNum, page_table->getPageSize()) == 1) { 
 			page_table->deletePage(pid, toRemove->virtual_address);
@@ -412,14 +466,16 @@ void freeVariable(uint32_t pid, std::string var_name, Mmu *mmu, PageTable *page_
 			for (int j = 0; j < proc->variables.size(); j++) {
 				var = proc->variables[j]; 
 				if (var->name == var_name) {
-					//TODO question: DO we need to update just the sizes or the virtual address?
+					
 					//If freespace comes before variable merge
 					if (j > 1 && proc->variables[j-1]->type == DataType::FreeSpace) {
 						proc->variables[j-1]->size = proc->variables[j-1]->size + var->size;
+						proc->variables.erase(proc->variables.begin()+j);
 					}
 					//If freespace comes after our variable merge
 					if (j+1 < mmu->getProcesses().size() && proc->variables[j+1]->type == DataType::FreeSpace) {
 						var->size = var->size + proc->variables[j+1]->size;
+						proc->variables.erase(proc->variables.begin()+(j+1));
 					}
 				}//if
 			}//for
