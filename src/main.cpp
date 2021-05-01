@@ -106,21 +106,30 @@ int main(int argc, char **argv)
 					}
 					int num_elements = var->size/item_size; 
 					void* value; 
-					if(var->type == DataType::Int || var->type == DataType::Short) {
+					if (var->type == DataType::Int || var->type == DataType::Short) {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
 							memcpy(value, (memory+physical_address), item_size);
-							int32_t tester = *((int32_t *) value);  
-							printf("%i, ", tester); 
+							int32_t tester = *((int32_t *) value);
+							if(i == 0) {
+								printf("%i", tester);
+							} else {
+								printf(", %i", tester); 
+							}
 						}	
 					} else if(var->type == DataType::Long) {
+						long long tester;
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-							memcpy(value, (memory+physical_address), item_size);
-							uint64_t tester = *((uint64_t *)value);  
-							printf("%ld, ", tester); 
+							memcpy(&tester, (memory+physical_address), item_size);
+							//cdlong long tester = *((long long *)value); 
+							if(i == 0) {
+								printf("%lld", tester);
+							} else {
+								printf(", %lld", tester); 
+							}  
 						}	
 					}  else if (var->type == DataType::Float) {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
@@ -128,15 +137,23 @@ int main(int argc, char **argv)
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
 							memcpy(value, (memory + physical_address), item_size);
 							float tester = *((float *)value);  
-							printf("%f, ", tester); 
+							if(i == 0) {
+								printf("%f", tester);
+							} else {
+								printf(", %f", tester); 
+							} 
 						}
 					} else if (var->type == DataType::Double) {
+						double tester;
 						for (int i = 0; i < 4 && i < num_elements; i++) {
 							offset = i * item_size; 
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
-							memcpy(value, (memory + physical_address), item_size);
-							double tester = *((double *)value);  
-							printf("%lf, ", tester); 
+							memcpy(&tester, (memory + physical_address), item_size); 
+							if (i == 0) {
+								printf("%lf", tester);
+							} else {
+								printf(", %lf", tester); 
+							} 
 						}
 					} else {
 						for (int i = 0; i < 4 && i < num_elements; i++) {
@@ -144,7 +161,11 @@ int main(int argc, char **argv)
 							physical_address = page_table->getPhysicalAddress(atoi(special_case[0].c_str()), var->virtual_address + offset); 
 							memcpy(value, (memory + physical_address), item_size); 
 							char tester = *((char *) value);  
-							printf("%c, ", tester); 
+							if(i == 0) {
+								printf("%c", tester);
+							} else {
+								printf(", %c", tester); 
+							} 
 						}
 					} 
 					if (num_elements >= 4) {
@@ -222,7 +243,7 @@ int main(int argc, char **argv)
 				for (int i = 0; i < values.size(); i++) {
 					void *set_value;
 					int32_t tempInt;
-					int64_t tempLong;
+					long long tempLong;
 					short tempShort;
 					char tempChar;
 					float tempFloat;
@@ -234,7 +255,6 @@ int main(int argc, char **argv)
 							offset += 4;
 						}
 					} else if (var->type == DataType::Long) {
-						//TODO double check if it is stoll
 						tempLong = std::stoll(values[i]);
 						set_value = &tempLong;
 						if(count != 0) {
